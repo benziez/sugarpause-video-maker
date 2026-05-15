@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SugarPause Generator — Login</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #14091a;
+  --panel: #1e0f24;
+  --panel-2: #2a1730;
+  --text: #f5e8ef;
+  --muted: #a890a0;
+  --accent: #e6a8c4;
+  --border: rgba(247, 235, 224, 0.1);
+  --danger: #e88a8a;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 40px 32px;
+  width: 100%;
+  max-width: 380px;
+  text-align: center;
+}
+h1 {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-weight: 400;
+  font-size: 36px;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.tagline {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--muted);
+  margin-bottom: 32px;
+}
+label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+input[type="password"] {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+  margin-bottom: 16px;
+}
+input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+button {
+  width: 100%;
+  background: linear-gradient(135deg, #b885e6 0%, #e6a8c4 100%);
+  color: #1a0d22;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s, box-shadow 0.15s;
+}
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(230, 168, 196, 0.25);
+}
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+.error {
+  background: rgba(232, 138, 138, 0.1);
+  border: 1px solid rgba(232, 138, 138, 0.3);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  display: none;
+}
+.error.show { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>SugarPause</h1>
+  <p class="tagline">quit sugar. fix menopause.</p>
+
+  <form id="loginForm">
+    <label>Access password</label>
+    <input type="password" id="passwordInput" autocomplete="current-password" autofocus required />
+    <div class="error" id="errorMsg"></div>
+    <button type="submit" id="submitBtn">Unlock</button>
+  </form>
+</div>
+
+<script>
+const form = document.getElementById('loginForm');
+const input = document.getElementById('passwordInput');
+const errorMsg = document.getElementById('errorMsg');
+const submitBtn = document.getElementById('submitBtn');
+
+form.addEventListener('submit', async e => {
+  e.preventDefault();
+  errorMsg.classList.remove('show');
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Checking...';
+
+  try {
+    const r = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: input.value })
+    });
+
+    if (r.ok) {
+      // Redirect to main app
+      window.location.href = '/';
+    } else {
+      const data = await r.json().catch(() => ({}));
+      errorMsg.textContent = data.error || 'Wrong password.';
+      errorMsg.classList.add('show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Unlock';
+      input.value = '';
+      input.focus();
+    }
+  } catch (e) {
+    errorMsg.textContent = 'Connection error. Try again.';
+    errorMsg.classList.add('show');
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Unlock';
+  }
+});
+</script>
+</body>
+</html>

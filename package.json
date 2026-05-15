@@ -1,0 +1,7 @@
+{
+  "name": "sugarpause-vercel",
+  "version": "1.0.0",
+  "description": "SugarPause slideshow generator — Vercel deployment",
+  "type": "module",
+  "private": true
+}
