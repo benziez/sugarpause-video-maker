@@ -1054,7 +1054,7 @@ Return them as exact substrings that appear in the headline.`;
 SLIDE 2 — CONTEXT (REQUIRED: user enabled "Add context slide")
 ════════════════════════════════════════════════════════
 
-You MUST include a "context_slide" object in the JSON. Slide 2 uses the SAME dark photo background as slide 1 (no separate image_query for slide 2).
+You MUST include a "context_slide" object in the JSON. The editor uses the same layout as slide 1, but the user can choose a different background photo for slide 2.
 
 Slide 2 content:
 - "intro": ONE short sentence (8-12 words). Italic tone. Bridges from the headline and sets up the bullets. No em dashes.
@@ -1086,7 +1086,7 @@ Slide 2 must continue slide 1's topic with deeper context, same defensible tone.
 TOPIC: "${topic}"
 
 The first slide imitates viral news-roundup posts: an eyebrow badge, a bold headline with 1-2 shocking words highlighted in coral, and an italic explainer underneath.
-${wantContextSlide ? 'The second slide continues the story: a "STORY CONTINUES" eyebrow (fixed label in the design), intro line, 3-4 labeled bullets with supporting facts, and a short footer — same dark photo look as slide 1.' : ''}
+${wantContextSlide ? 'The second slide continues the story: a "STORY CONTINUES" eyebrow (fixed label in the design), intro line, 3-4 labeled bullets with supporting facts, and a short footer — same full-bleed dark layout as slide 1; the user picks the background image separately for each slide.' : ''}
 ${sharedGuardrails}
 ${slide1Voice}
 ${slide2Instructions}
@@ -1138,9 +1138,11 @@ ${jsonSlide1}${jsonContext}
         intro: String(cs.intro || '').trim(),
         bullets: normBullets,
         footer: String(cs.footer || '').trim(),
-        image: null
+        image: null,
+        imageQuery: parsed.image_query || topic,
+        imageOptions: null
       });
-      showStatus('📰 News slides generated (headline + context). Add a background on slide 1; slide 2 reuses it automatically.', 'success');
+      showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
     } else {
       if (wantContextSlide) {
         showStatus('📰 Headline slide ready, but the model did not return a valid context_slide (need 3-4 bullets). Try generating again.', 'info');
@@ -1166,7 +1168,7 @@ ${jsonSlide1}${jsonContext}
 
 async function autoFindImages() {
   const itemSlides = slides.map((s, i) => ({ slide: s, idx: i })).filter(x =>
-    x.slide.type === 'item' || x.slide.type === 'news'
+    x.slide.type === 'item' || x.slide.type === 'news' || x.slide.type === 'news_context'
   );
   if (itemSlides.length === 0) {
     showStatus('Generate copy first.', 'error');
@@ -1181,7 +1183,8 @@ async function autoFindImages() {
     let completed = 0;
     // Run searches in parallel
     await Promise.all(itemSlides.map(async ({ slide, idx }) => {
-      const query = slide.imageQuery || slide.title;
+      const query = slide.imageQuery || slide.title
+        || slides.find(s => s.type === 'news')?.imageQuery || '';
       try {
         const r = await fetch(`/api/search-images?q=${encodeURIComponent(query)}&num=10`);
         const data = await r.json();
@@ -1391,7 +1394,6 @@ function renderEditors() {
         <label>Footer</label>
         <input type="text" data-i="${i}" data-field="footer" value="${escapeHtml(slide.footer || '')}" />
       </div>`;
-      html += `<p class="hint">Uses the same background photo as slide 1 automatically.</p>`;
     } else {
       html += `<div class="field">
         <label>Title / Hook</label>
@@ -1406,14 +1408,14 @@ function renderEditors() {
       </div>`;
     }
 
-    // Image upload — for item, hook (optional bg), and news (background image)
-    if (slide.type === 'item' || slide.type === 'hook' || slide.type === 'news') {
+    // Image upload — for item, hook (optional bg), news, and news_context (each own background)
+    if (slide.type === 'item' || slide.type === 'hook' || slide.type === 'news' || slide.type === 'news_context') {
       const labelText = slide.type === 'hook' ? 'Background image (optional)' :
-                        slide.type === 'news' ? 'Background image' :
+                        slide.type === 'news' || slide.type === 'news_context' ? 'Background image' :
                                                 'Image';
       const placeholderText = slide.type === 'hook'
         ? '<p><strong>Optional</strong> — add a photo to use as the hook background<br/>click here then paste (⌘V), or drop a file</p>'
-        : slide.type === 'news'
+        : slide.type === 'news' || slide.type === 'news_context'
         ? '<p><strong>Add a background photo</strong> — strong newsworthy image works best<br/>click here then paste (⌘V), or drop a file</p>'
         : '<p><strong>Click here</strong> then paste (⌘V)<br/>or drop a file</p>';
 
@@ -1540,9 +1542,9 @@ function handlePaste(e) {
       const file = item.getAsFile();
       // Priority: active target (any slide type that accepts images) > first empty item slot
       let idx = activePasteTarget;
-      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook' || slides[idx].type === 'news');
+      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook' || slides[idx].type === 'news' || slides[idx].type === 'news_context');
       if (!acceptsImage) {
-        idx = slides.findIndex(s => (s.type === 'item' || s.type === 'news') && !s.image);
+        idx = slides.findIndex(s => (s.type === 'item' || s.type === 'news' || s.type === 'news_context') && !s.image);
       }
       if (idx >= 0) {
         handleFile(file, idx);
@@ -2094,8 +2096,7 @@ function drawNews(ctx, slide) {
 
 // ---------- News context slide (slide 2) ----------
 function drawNewsContext(ctx, slide) {
-  const newsSlide = slides.find(s => s.type === 'news');
-  const bgSrc = newsSlide && newsSlide.image ? newsSlide.image : null;
+  const bgSrc = slide.image || null;
 
   if (bgSrc) {
     const bgImg = getCachedImage(bgSrc);
