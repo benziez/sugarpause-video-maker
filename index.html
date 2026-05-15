@@ -97,6 +97,35 @@
   .field { margin-bottom: 16px; }
   .hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
+  .news-context-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin: 0;
+    padding: 12px 14px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .news-context-toggle:hover { border-color: var(--muted); }
+  .news-context-toggle.is-checked {
+    border-color: #e8a4a0;
+    box-shadow: 0 0 0 2px rgba(232, 164, 160, 0.22);
+  }
+  .news-context-toggle input[type="checkbox"] {
+    margin-top: 2px;
+    width: 18px;
+    height: 18px;
+    accent-color: #e8a4a0;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
   /* Visual style picker */
   .style-toggle {
     display: grid;
@@ -523,6 +552,14 @@
           <p class="hint">Be specific. The more direct, the better the hook.</p>
         </div>
 
+        <div class="field" id="newsContextSlideField" style="display: none;">
+          <label class="news-context-toggle" for="newsContextSlideToggle">
+            <input type="checkbox" id="newsContextSlideToggle" />
+            <span>Add context slide</span>
+          </label>
+          <p class="hint">Generates a 2nd slide with 3-4 supporting bullet points</p>
+        </div>
+
         <div class="field" id="slideCountField">
           <label>Number of food/item slides</label>
           <input type="text" id="slideCount" value="5" />
@@ -647,6 +684,8 @@ function setContentType(type) {
   const newsMode = (type === 'news');
   document.getElementById('slideCountField').style.display = newsMode ? 'none' : '';
   document.getElementById('visualStyleField').style.display = newsMode ? 'none' : '';
+  const newsCtxField = document.getElementById('newsContextSlideField');
+  if (newsCtxField) newsCtxField.style.display = newsMode ? '' : 'none';
 
   // Update topic placeholder hint
   const topicInput = document.getElementById('topic');
@@ -665,6 +704,18 @@ document.querySelectorAll('.content-type-option').forEach(btn => {
   btn.addEventListener('click', () => setContentType(btn.dataset.contentType));
 });
 setContentType(contentType);
+
+(function initNewsContextSlideToggle() {
+  const el = document.getElementById('newsContextSlideToggle');
+  if (!el) return;
+  const lab = el.closest('.news-context-toggle');
+  el.checked = localStorage.getItem('sugarpause_news_context_slide') === '1';
+  if (lab) lab.classList.toggle('is-checked', el.checked);
+  el.addEventListener('change', () => {
+    localStorage.setItem('sugarpause_news_context_slide', el.checked ? '1' : '0');
+    if (lab) lab.classList.toggle('is-checked', el.checked);
+  });
+})();
 
 // ============================================================
 // GENERATE COPY VIA CLAUDE
@@ -908,12 +959,9 @@ function extractJsonFromResponse(rawText) {
 // NEWS SLIDE GENERATION — single viral news-style headline post
 // ============================================================
 async function generateNewsSlide(topic, btn) {
-  const prompt = `You are writing a SINGLE news-style Instagram/TikTok slide for SugarPause — an app helping women in menopause quit sugar.
+  const wantContextSlide = !!(document.getElementById('newsContextSlideToggle')?.checked);
 
-TOPIC: "${topic}"
-
-The slide imitates the visual style of viral news-roundup posts: a "NEWS" badge, a bold headline with 1-2 shocking words highlighted in coral, and an italic explainer underneath.
-
+  const sharedGuardrails = `
 ════════════════════════════════════════════════════════
 ⚠️ CRITICAL FACTUAL GUARDRAILS — READ BEFORE WRITING
 ════════════════════════════════════════════════════════
@@ -954,15 +1002,15 @@ These almost always overstate the evidence. For menopause + sugar, the #1 driver
 - Many "healthy" foods (yogurt, granola, juice) have hidden added sugar
 - Cortisol from blood sugar crashes disrupts sleep and weight regulation
 
-🧠 SELF-CHECK BEFORE RETURNING:
-1. Could a doctor or journalist defensibly support this exact headline?
+🧠 SELF-CHECK BEFORE RETURNING (for headline AND every context bullet):
+1. Could a doctor or journalist defensibly support this exact claim?
 2. Am I implying a specific study that I haven't actually cited?
 3. Am I using a #1/the/only superlative that overstates the evidence?
 If any answer is "yes" → rewrite.
+════════════════════════════════════════════════════════`;
 
-════════════════════════════════════════════════════════
-
-VOICE & STYLE:
+  const slide1Voice = `
+VOICE & STYLE FOR SLIDE 1:
 - Headline must be PUNCHY but FACTUALLY DEFENSIBLE.
 - Include "menopause" or a menopause-specific term (hot flashes, brain fog, hormones, perimenopause, belly fat, insulin) so the algorithm targets the right women.
 - The enemy is Big Food / misleading marketing / hidden sugar — never the woman watching.
@@ -998,24 +1046,62 @@ Identify 1-2 SHOCKING WORDS or NUMBERS in the headline to highlight in coral. Pi
 - A specific menopause symptom ("BELLY FAT", "HOT FLASHES", "BRAIN FOG")
 Avoid highlighting fabricated stats.
 
-Return them as exact substrings that appear in the headline.
+Return them as exact substrings that appear in the headline.`;
+
+  const slide2Instructions = wantContextSlide ? `
 
 ════════════════════════════════════════════════════════
+SLIDE 2 — CONTEXT (REQUIRED: user enabled "Add context slide")
+════════════════════════════════════════════════════════
 
-Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
-{
+You MUST include a "context_slide" object in the JSON. Slide 2 uses the SAME dark photo background as slide 1 (no separate image_query for slide 2).
+
+Slide 2 content:
+- "intro": ONE short sentence (8-12 words). Italic tone. Bridges from the headline and sets up the bullets. No em dashes.
+- "bullets": EXACTLY 3 or 4 objects. Each:
+  - "label": 2-3 words, will be shown ALL CAPS in coral (e.g. "THE MECHANISM", "WHY IT HITS HARDER", "THE FIX").
+  - "text": ONE punchy sentence, 12-20 words, defensible mechanism language — apply the SAME factual guardrails as slide 1. No fabricated stats, no banned study phrases, no "#1 / main driver" superlatives.
+- "footer": ONE closing line, 5-10 words, prompts action or curiosity (e.g. "The good news: it reverses fast." or "Cutting sugar changes this in 2 weeks.").
+
+Slide 2 must continue slide 1's topic with deeper context, same defensible tone.` : '';
+
+  const jsonSlide1 = `{
   "badge": "Short eyebrow label, max 10 chars, all caps. PREFERRED (high-energy, defensible): BREAKING, WARNING, EXPOSED, ALERT, HIDDEN, HEALTH, WATCH OUT, REAL TALK. ❌ BANNED: 'NEW STUDY', 'STUDY', 'RESEARCH', 'REPORT' — these imply specific cited studies we don't have. Pick the badge whose energy matches the headline best.",
   "headline": "The main headline. 6-14 words. Will be rendered in all caps. Must include menopause reference. Must pass the self-check above.",
   "highlights": ["word or phrase to highlight", "second highlight (optional)"],
   "explainer": "ONE sentence, italicized news-ticker style, supporting the headline with a defensible mechanism detail. No fluff, no fake stats. 15-25 words.",
-  "image_query": "specific google image search for a strong background photo (e.g. 'sugar pile spilled out', 'menopausal woman tired kitchen', 'donuts pastries display'). Stock-photo style."
+  "image_query": "specific google image search for a strong background photo (e.g. 'sugar pile spilled out', 'menopausal woman tired kitchen', 'donuts pastries display'). Stock-photo style."`;
+
+  const jsonContext = wantContextSlide ? `,
+  "context_slide": {
+    "intro": "8-12 words. Bridges headline to bullets.",
+    "bullets": [
+      { "label": "TWO WORD LABEL", "text": "12-20 word defensible sentence." }
+    ],
+    "footer": "5-10 words. Action or curiosity."
+  }` : '';
+
+  const prompt = `You are writing ${wantContextSlide ? 'TWO' : 'a SINGLE'} news-style Instagram/TikTok slide(s) for SugarPause — an app helping women in menopause quit sugar.
+
+TOPIC: "${topic}"
+
+The first slide imitates viral news-roundup posts: an eyebrow badge, a bold headline with 1-2 shocking words highlighted in coral, and an italic explainer underneath.
+${wantContextSlide ? 'The second slide continues the story: a "STORY CONTINUES" eyebrow (fixed label in the design), intro line, 3-4 labeled bullets with supporting facts, and a short footer — same dark photo look as slide 1.' : ''}
+${sharedGuardrails}
+${slide1Voice}
+${slide2Instructions}
+
+════════════════════════════════════════════════════════
+
+Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
+${jsonSlide1}${jsonContext}
 }`;
 
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, maxTokens: 1000 })
+      body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1000 })
     });
 
     if (!res.ok) {
@@ -1026,8 +1112,7 @@ Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
     const { text: rawText } = await res.json();
     const parsed = extractJsonFromResponse(rawText);
 
-    // Build a single-slide news deck
-    slides = [{
+    const slide1 = {
       type: 'news',
       badge: (parsed.badge || 'NEWS').toUpperCase(),
       headline: parsed.headline || '',
@@ -1036,12 +1121,37 @@ Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
       image: null,
       imageQuery: parsed.image_query || topic,
       imageOptions: null
-    }];
+    };
+
+    slides = [slide1];
+
+    const cs = parsed.context_slide;
+    const rawBullets = cs && Array.isArray(cs.bullets) ? cs.bullets : [];
+    const normBullets = rawBullets.slice(0, 4).map(b => ({
+      label: String(b.label || '').trim().toUpperCase(),
+      text: String(b.text || '').trim()
+    })).filter(b => b.label || b.text);
+
+    if (wantContextSlide && cs && normBullets.length >= 3) {
+      slides.push({
+        type: 'news_context',
+        intro: String(cs.intro || '').trim(),
+        bullets: normBullets,
+        footer: String(cs.footer || '').trim(),
+        image: null
+      });
+      showStatus('📰 News slides generated (headline + context). Add a background on slide 1; slide 2 reuses it automatically.', 'success');
+    } else {
+      if (wantContextSlide) {
+        showStatus('📰 Headline slide ready, but the model did not return a valid context_slide (need 3-4 bullets). Try generating again.', 'info');
+      } else {
+        showStatus('📰 News slide generated. Add a background image to complete it.', 'success');
+      }
+    }
 
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
-    showStatus('📰 News slide generated. Add a background image to complete it.', 'success');
   } catch (e) {
     console.error(e);
     showStatus('Error: ' + e.message, 'error');
@@ -1050,13 +1160,14 @@ Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
     btn.innerHTML = '✨ Generate News Slide';
   }
 }
-
 // ============================================================
 // AUTO-FIND IMAGES VIA SERPAPI (via /api/search-images on Vercel)
 // ============================================================
 
 async function autoFindImages() {
-  const itemSlides = slides.map((s, i) => ({ slide: s, idx: i })).filter(x => x.slide.type === 'item');
+  const itemSlides = slides.map((s, i) => ({ slide: s, idx: i })).filter(x =>
+    x.slide.type === 'item' || x.slide.type === 'news'
+  );
   if (itemSlides.length === 0) {
     showStatus('Generate copy first.', 'error');
     return;
@@ -1236,6 +1347,7 @@ function renderEditors() {
     const label = slide.type === 'hook' ? 'Slide 1 — Hook' :
                   slide.type === 'cta'  ? `Slide ${i+1} — CTA (fixed design)` :
                   slide.type === 'news' ? '📰 News Slide' :
+                  slide.type === 'news_context' ? '📰 Context slide (slide 2)' :
                                           `Slide ${i+1} — Item`;
 
     let html = `<h3>${label}</h3>`;
@@ -1262,10 +1374,28 @@ function renderEditors() {
         <label>Explainer (italic, under headline)</label>
         <textarea data-i="${i}" data-field="explainer" rows="2">${escapeHtml(slide.explainer || '')}</textarea>
       </div>`;
+    } else if (slide.type === 'news_context') {
+      html += `<div class="field">
+        <label>Intro (bridging line)</label>
+        <textarea data-i="${i}" data-field="intro" rows="2">${escapeHtml(slide.intro || '')}</textarea>
+      </div>`;
+      (slide.bullets || []).forEach((b, j) => {
+        html += `<div class="field" style="border-left: 3px solid #e8a4a0; padding-left: 12px; margin-bottom: 12px;">
+          <label>Bullet ${j + 1} label</label>
+          <input type="text" data-i="${i}" data-field="bullet-label-${j}" value="${escapeHtml(b.label || '')}" />
+          <label style="margin-top: 8px;">Bullet ${j + 1} text</label>
+          <textarea data-i="${i}" data-field="bullet-text-${j}" rows="2">${escapeHtml(b.text || '')}</textarea>
+        </div>`;
+      });
+      html += `<div class="field">
+        <label>Footer</label>
+        <input type="text" data-i="${i}" data-field="footer" value="${escapeHtml(slide.footer || '')}" />
+      </div>`;
+      html += `<p class="hint">Uses the same background photo as slide 1 automatically.</p>`;
     } else {
       html += `<div class="field">
         <label>Title / Hook</label>
-        <textarea data-i="${i}" data-field="title">${escapeHtml(slide.title)}</textarea>
+        <textarea data-i="${i}" data-field="title">${escapeHtml(slide.title || '')}</textarea>
       </div>`;
     }
 
@@ -1315,6 +1445,16 @@ function renderEditors() {
     if (f === 'highlights-csv') {
       // Split comma-separated into trimmed array
       slides[i].highlights = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (f.startsWith('bullet-label-')) {
+      const j = parseInt(f.slice('bullet-label-'.length), 10);
+      if (!slides[i].bullets) slides[i].bullets = [];
+      slides[i].bullets[j] = slides[i].bullets[j] || { label: '', text: '' };
+      slides[i].bullets[j].label = e.target.value;
+    } else if (f.startsWith('bullet-text-')) {
+      const j = parseInt(f.slice('bullet-text-'.length), 10);
+      if (!slides[i].bullets) slides[i].bullets = [];
+      slides[i].bullets[j] = slides[i].bullets[j] || { label: '', text: '' };
+      slides[i].bullets[j].text = e.target.value;
     } else {
       slides[i][f] = e.target.value;
     }
@@ -1400,9 +1540,9 @@ function handlePaste(e) {
       const file = item.getAsFile();
       // Priority: active target (any slide type that accepts images) > first empty item slot
       let idx = activePasteTarget;
-      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook');
+      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook' || slides[idx].type === 'news');
       if (!acceptsImage) {
-        idx = slides.findIndex(s => s.type === 'item' && !s.image);
+        idx = slides.findIndex(s => (s.type === 'item' || s.type === 'news') && !s.image);
       }
       if (idx >= 0) {
         handleFile(file, idx);
@@ -1472,6 +1612,8 @@ function drawSlide(canvas, slide, idx) {
     drawCTA(ctx, slide);
   } else if (slide.type === 'news') {
     drawNews(ctx, slide);
+  } else if (slide.type === 'news_context') {
+    drawNewsContext(ctx, slide);
   } else {
     drawItem(ctx, slide, idx);
   }
@@ -1948,6 +2090,188 @@ function drawNews(ctx, slide) {
   ctx.textBaseline = 'middle';
   ctx.fillText(badgeText, 80 + padX, badgeY - badgeH/2);
   ctx.textBaseline = 'alphabetic';
+}
+
+// ---------- News context slide (slide 2) ----------
+function drawNewsContext(ctx, slide) {
+  const newsSlide = slides.find(s => s.type === 'news');
+  const bgSrc = newsSlide && newsSlide.image ? newsSlide.image : null;
+
+  if (bgSrc) {
+    const bgImg = getCachedImage(bgSrc);
+    if (bgImg && bgImg.complete && bgImg.naturalWidth) {
+      const ar = bgImg.naturalWidth / bgImg.naturalHeight;
+      const tar = W / H;
+      let dw, dh, dx, dy;
+      if (ar > tar) {
+        dh = H; dw = H * ar;
+        dx = -(dw - W) / 2; dy = 0;
+      } else {
+        dw = W; dh = W / ar;
+        dx = 0; dy = -(dh - H) / 2;
+      }
+      ctx.drawImage(bgImg, dx, dy, dw, dh);
+    } else {
+      ctx.fillStyle = '#0e0a0d';
+      ctx.fillRect(0, 0, W, H);
+    }
+  } else {
+    const fallback = ctx.createLinearGradient(0, 0, 0, H);
+    fallback.addColorStop(0, '#2a1620');
+    fallback.addColorStop(1, '#0e0a0d');
+    ctx.fillStyle = fallback;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  const overlay = ctx.createLinearGradient(0, H * 0.18, 0, H);
+  overlay.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  overlay.addColorStop(0.38, 'rgba(0, 0, 0, 0.52)');
+  overlay.addColorStop(0.68, 'rgba(0, 0, 0, 0.88)');
+  overlay.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, 0, W, H);
+
+  const marginX = 80;
+  const contentW = W - 160;
+  const dotSize = 10;
+  const bulletIndent = marginX + dotSize + 12;
+  const bullets = slide.bullets || [];
+
+  const badgeText = 'STORY CONTINUES';
+  const padX = 14;
+  const padY = 8;
+  const badgeFontPx = 22;
+  const badgeH = badgeFontPx + padY * 2;
+  const badgeToIntroGap = 30;
+  const introToBulletGap = 40;
+  const bulletToFootGap = 50;
+  const innerGap = 8;
+  const bulletGap = 32;
+
+  const brandY = H - 100;
+  const contentBottom = brandY - 88;
+  const footLineH = 28;
+  const minTextPx = 22;
+  const minLabelPx = 18;
+
+  ctx.font = 'italic 400 24px Inter, -apple-system, sans-serif';
+  const footLines = layoutLines(ctx, slide.footer || '', contentW).slice(0, 2);
+  const footBlockH = footLines.length * footLineH;
+
+  function measureBlock(labelPx, textPx, textLineH) {
+    ctx.font = `italic 400 28px Inter, -apple-system, sans-serif`;
+    const introLines = layoutLines(ctx, slide.intro || '', contentW).slice(0, 2);
+    const introLH = Math.max(30, Math.round(textPx * 1.12));
+    const introH = introLines.length * introLH;
+
+    const labelMaxW = contentW - (bulletIndent - marginX);
+    const bodyMaxW = W - marginX - bulletIndent;
+    const rowData = [];
+    let bh = 0;
+
+    ctx.font = `800 ${labelPx}px Inter, -apple-system, sans-serif`;
+    for (let bi = 0; bi < bullets.length; bi++) {
+      const b = bullets[bi];
+      const lab = (b.label || '').toUpperCase();
+      const labLines = layoutLines(ctx, lab, labelMaxW);
+      ctx.font = `400 ${textPx}px Inter, -apple-system, sans-serif`;
+      const txtLines = layoutLines(ctx, b.text || '', bodyMaxW);
+      const labBlockH = labLines.length * (labelPx * 1.08);
+      const txtBlockH = txtLines.length * textLineH;
+      const rowH = labBlockH + innerGap + txtBlockH;
+      rowData.push({ labLines, txtLines, labBlockH, txtBlockH });
+      bh += rowH + (bi < bullets.length - 1 ? bulletGap : 0);
+      ctx.font = `800 ${labelPx}px Inter, -apple-system, sans-serif`;
+    }
+
+    return { introLines, introLH, introH, rowData, bh };
+  }
+
+  let labelPx = 22;
+  let textPx = 26;
+  let textLineH = 32;
+  let m = measureBlock(labelPx, textPx, textLineH);
+  let totalH = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh + bulletToFootGap + footBlockH;
+  let blockTop = contentBottom - totalH;
+
+  while (blockTop < 55 && (textPx > minTextPx || labelPx > minLabelPx)) {
+    if (textPx > minTextPx) {
+      textPx -= 2;
+      textLineH = Math.max(26, textPx + 6);
+    } else {
+      labelPx -= 2;
+    }
+    m = measureBlock(labelPx, textPx, textLineH);
+    totalH = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh + bulletToFootGap + footBlockH;
+    blockTop = contentBottom - totalH;
+  }
+
+  let y = blockTop;
+
+  ctx.font = `800 ${badgeFontPx}px Inter, -apple-system, sans-serif`;
+  const tw = ctx.measureText(badgeText).width;
+  const bw = tw + padX * 2;
+  roundRect(ctx, marginX, y, bw, badgeH, 5);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(badgeText, marginX + padX, y + badgeH / 2);
+  ctx.textBaseline = 'alphabetic';
+  y += badgeH + badgeToIntroGap;
+
+  ctx.font = `italic 400 28px Inter, -apple-system, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  m.introLines.forEach((line, i) => {
+    ctx.fillText(line, marginX, y + (i + 1) * m.introLH - 4);
+  });
+  y += m.introH + introToBulletGap;
+
+  m.rowData.forEach((row, bi) => {
+    ctx.fillStyle = '#e8a4a0';
+    const firstLabLineY = y + labelPx * 0.85;
+    ctx.fillRect(marginX, firstLabLineY - labelPx * 0.5 - dotSize / 2, dotSize, dotSize);
+
+    ctx.font = `800 ${labelPx}px Inter, -apple-system, sans-serif`;
+    ctx.fillStyle = '#e8a4a0';
+    row.labLines.forEach((line, li) => {
+      ctx.fillText(line, bulletIndent, y + labelPx * 0.85 + li * (labelPx * 1.08));
+    });
+    y += row.labBlockH + innerGap;
+
+    ctx.font = `400 ${textPx}px Inter, -apple-system, sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    row.txtLines.forEach((line, ti) => {
+      ctx.fillText(line, bulletIndent, y + textPx * 0.78 + ti * textLineH);
+    });
+    y += row.txtBlockH + (bi < m.rowData.length - 1 ? bulletGap : 0);
+  });
+
+  const footY0 = contentBottom - footBlockH;
+  ctx.textAlign = 'center';
+  ctx.font = 'italic 400 24px Inter, -apple-system, sans-serif';
+  ctx.fillStyle = '#ffffff';
+  footLines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, footY0 + (i + 1) * footLineH - 6);
+  });
+
+  const logoImg = (typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
+  let lineStartX = 80;
+  if (logoImg && logoImg.complete && logoImg.naturalWidth) {
+    const logoH = 60;
+    const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
+    ctx.drawImage(logoImg, 80, brandY - logoH / 2, logoW, logoH);
+    lineStartX = 80 + logoW + 24;
+  }
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(lineStartX, brandY);
+  ctx.lineTo(W - 80, brandY);
+  ctx.stroke();
 }
 
 // Tracks where the top of the most recently drawn headline ended up, so the badge can sit above it
