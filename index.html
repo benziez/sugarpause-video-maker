@@ -2149,7 +2149,6 @@ function drawNewsContext(ctx, slide) {
   const bulletGap = 32;
 
   const brandY = H - 100;
-  const contentBottom = brandY - 88;
   const footLineH = 28;
   const minTextPx = 22;
   const minLabelPx = 18;
@@ -2157,6 +2156,8 @@ function drawNewsContext(ctx, slide) {
   ctx.font = 'italic 400 24px Inter, -apple-system, sans-serif';
   const footLines = layoutLines(ctx, slide.footer || '', contentW).slice(0, 2);
   const footBlockH = footLines.length * footLineH;
+  const footBaselineLast = H - 150;
+  const bulletsBottomY = footBaselineLast - footBlockH - bulletToFootGap;
 
   function measureBlock(labelPx, textPx, textLineH) {
     ctx.font = `italic 400 28px Inter, -apple-system, sans-serif`;
@@ -2191,8 +2192,8 @@ function drawNewsContext(ctx, slide) {
   let textPx = 26;
   let textLineH = 32;
   let m = measureBlock(labelPx, textPx, textLineH);
-  let totalH = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh + bulletToFootGap + footBlockH;
-  let blockTop = contentBottom - totalH;
+  const contentH = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh;
+  let blockTop = bulletsBottomY - contentH;
 
   while (blockTop < 55 && (textPx > minTextPx || labelPx > minLabelPx)) {
     if (textPx > minTextPx) {
@@ -2202,8 +2203,8 @@ function drawNewsContext(ctx, slide) {
       labelPx -= 2;
     }
     m = measureBlock(labelPx, textPx, textLineH);
-    totalH = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh + bulletToFootGap + footBlockH;
-    blockTop = contentBottom - totalH;
+    const ch = badgeH + badgeToIntroGap + m.introH + introToBulletGap + m.bh;
+    blockTop = bulletsBottomY - ch;
   }
 
   let y = blockTop;
@@ -2249,12 +2250,11 @@ function drawNewsContext(ctx, slide) {
     y += row.txtBlockH + (bi < m.rowData.length - 1 ? bulletGap : 0);
   });
 
-  const footY0 = contentBottom - footBlockH;
   ctx.textAlign = 'center';
   ctx.font = 'italic 400 24px Inter, -apple-system, sans-serif';
   ctx.fillStyle = '#ffffff';
   footLines.forEach((line, i) => {
-    ctx.fillText(line, W / 2, footY0 + (i + 1) * footLineH - 6);
+    ctx.fillText(line, W / 2, footBaselineLast - (footLines.length - 1 - i) * footLineH);
   });
 
   const logoImg = (typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
