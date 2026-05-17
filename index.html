@@ -511,6 +511,76 @@
     backdrop-filter: blur(4px);
   }
   .image-picker-thumb.failed { opacity: 0.4; }
+
+  .batch-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .batch-modal-overlay[hidden] { display: none; }
+  .batch-modal-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .batch-modal-card h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .batch-modal-subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+  .batch-modal-card textarea {
+    min-height: 180px;
+    font-family: inherit;
+    line-height: 1.5;
+  }
+  .batch-topic-count {
+    font-size: 12px;
+    color: var(--muted);
+    margin: 8px 0 16px;
+  }
+  .batch-modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  .batch-modal-actions button { width: auto; flex: 0 0 auto; }
+  .batch-modal-actions button.primary-batch {
+    background: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
+    color: #1a0f1f;
+    border: none;
+  }
+  .batch-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1100;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    font-size: 13px;
+    color: var(--text);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  }
+  .batch-progress-bar[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -585,6 +655,8 @@
         <button id="generateBtn" onclick="generateContent()">
           ✨ Generate Copy with AI
         </button>
+
+        <button type="button" id="batchBtn" class="secondary" style="margin-top: 10px;">📋 Batch Generate from List</button>
 
         <div id="status" style="margin-top: 12px;"></div>
       </div>
@@ -698,6 +770,9 @@ function setContentType(type) {
   genBtn.innerHTML = newsMode
     ? '✨ Generate News Slide'
     : '✨ Generate Copy with AI';
+
+  const batchModal = document.getElementById('batchModal');
+  if (batchModal && !batchModal.hidden) updateBatchModalSubtitle();
 }
 
 document.querySelectorAll('.content-type-option').forEach(btn => {
@@ -718,28 +793,71 @@ setContentType(contentType);
 })();
 
 // ============================================================
-// GENERATE COPY VIA CLAUDE
+// GENERATION CORE (single + batch)
 // ============================================================
-async function generateContent() {
-  console.log('[generateContent] called. contentType =', contentType);
-  const topic = document.getElementById('topic').value.trim();
-  const count = parseInt(document.getElementById('slideCount').value) || 5;
 
-  if (!topic) { showStatus('Enter a topic first.', 'error'); return; }
+let batchDownloadHint = null; // { firstTopic, topicCount } after batch
 
-  const btn = document.getElementById('generateBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Generating...';
-  showStatus('Calling Claude to write your copy...', 'info');
-
-  // Branch: news single-slide mode vs carousel mode
-  if (contentType === 'news') {
-    console.log('[generateContent] branching to generateNewsSlide');
-    await generateNewsSlide(topic, btn);
-    return;
+function showStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.className = 'status ' + type;
+  el.textContent = msg;
+  console.log('[status]', type, msg);
+  if (type !== 'error') {
+    setTimeout(() => { if (el.textContent === msg) { el.textContent = ''; el.className = ''; } }, 5000);
   }
+}
 
-  const prompt = `You are writing a SugarPause Instagram/TikTok slideshow. SugarPause helps women in menopause quit sugar and manage symptoms (hot flashes, night sweats, brain fog, weight gain, sleep issues, mood swings).
+function extractJsonFromResponse(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Empty response from API');
+  }
+  let text = rawText.replace(/```(?:json|JSON)?\s*/g, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(text);
+  } catch {}
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) {
+    const candidate = text.slice(firstBrace, lastBrace + 1);
+    try {
+      return JSON.parse(candidate);
+    } catch (e) {
+      let depth = 0;
+      const start = firstBrace;
+      for (let i = firstBrace; i < text.length; i++) {
+        if (text[i] === '{') depth++;
+        else if (text[i] === '}') {
+          depth--;
+          if (depth === 0) {
+            try { return JSON.parse(text.slice(start, i + 1)); }
+            catch {}
+            break;
+          }
+        }
+      }
+    }
+  }
+  throw new Error('Could not parse JSON from response. Raw text: ' + rawText.slice(0, 200));
+}
+
+function slugifyTopic(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 40);
+}
+
+function parseBatchTopics(raw) {
+  return raw
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*(\d+[\.\)]\s*|[\-•]\s*)/, '').trim())
+    .filter(Boolean);
+}
+
+function buildCarouselPrompt(topic, count) {
+  return `You are writing a SugarPause Instagram/TikTok slideshow. SugarPause helps women in menopause quit sugar and manage symptoms (hot flashes, night sweats, brain fog, weight gain, sleep issues, mood swings).
 
 TOPIC: "${topic}"
 
@@ -854,113 +972,44 @@ Return a JSON object with this exact shape, no markdown fences, no commentary:
 }
 
 Generate ${count} items. Make every slide count toward the hook's promise.`;
+}
 
+function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
+  const slide1 = {
+    type: 'news',
+    badge: (parsed.badge || 'NEWS').toUpperCase(),
+    headline: parsed.headline || '',
+    highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
+    explainer: parsed.explainer || '',
+    image: null,
+    imageQuery: parsed.image_query || topic,
+    imageOptions: null
+  };
 
-  try {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, maxTokens: 2000 })
+  const result = [slide1];
+  const cs = parsed.context_slide;
+  const rawBullets = cs && Array.isArray(cs.bullets) ? cs.bullets : [];
+  const normBullets = rawBullets.slice(0, 4).map(b => ({
+    label: String(b.label || '').trim().toUpperCase(),
+    text: String(b.text || '').trim()
+  })).filter(b => b.label || b.text);
+
+  if (wantContextSlide && cs && normBullets.length >= 3) {
+    result.push({
+      type: 'news_context',
+      intro: String(cs.intro || '').trim(),
+      bullets: normBullets,
+      footer: String(cs.footer || '').trim(),
+      image: null,
+      imageQuery: parsed.image_query || topic,
+      imageOptions: null
     });
-
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Server ${res.status}: ${err}`);
-    }
-
-    const { text: rawText } = await res.json();
-    const parsed = extractJsonFromResponse(rawText);
-
-    // Build slides array
-    slides = [];
-    slides.push({ type: 'hook', title: parsed.hook, body: '', image: null });
-    parsed.items.forEach(item => {
-      slides.push({
-        type: 'item',
-        title: item.name,
-        body: item.caption,
-        image: null,
-        imageQuery: item.image_query || item.name,
-        imageOptions: null  // populated when user clicks "auto-find images"
-      });
-    });
-    slides.push({ type: 'cta', title: '', body: '', image: null });
-
-    document.getElementById('editorPanel').hidden = false;
-    renderEditors();
-    renderAll();
-
-    const formatLabel = parsed.format === 'narrative' ? '📖 Narrative story arc' :
-                        parsed.format === 'list' ? '📋 List/roundup' :
-                        'Generated';
-    showStatus(`${formatLabel}. Add images and tweak text as needed.`, 'success');
-  } catch (e) {
-    console.error(e);
-    showStatus('Error: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '✨ Generate Copy with AI';
   }
+
+  return result;
 }
 
-function showStatus(msg, type) {
-  const el = document.getElementById('status');
-  el.className = 'status ' + type;
-  el.textContent = msg;
-  console.log('[status]', type, msg);
-  // Errors should stick so user can read them. Info/success fade after 5s.
-  if (type !== 'error') {
-    setTimeout(() => { if (el.textContent === msg) { el.textContent = ''; el.className = ''; } }, 5000);
-  }
-}
-
-// Robust JSON extraction from LLM response. Handles preamble text, code fences,
-// markdown wrappers, and trailing commentary. Throws with a useful error if no JSON found.
-function extractJsonFromResponse(rawText) {
-  if (!rawText || typeof rawText !== 'string') {
-    throw new Error('Empty response from API');
-  }
-  // Strip markdown code fences (```json ... ``` or ``` ... ```)
-  let text = rawText.replace(/```(?:json|JSON)?\s*/g, '').replace(/```/g, '').trim();
-
-  // Try direct parse first
-  try {
-    return JSON.parse(text);
-  } catch {}
-
-  // Find the first { and the matching last } and try parsing that substring
-  const firstBrace = text.indexOf('{');
-  const lastBrace = text.lastIndexOf('}');
-  if (firstBrace >= 0 && lastBrace > firstBrace) {
-    const candidate = text.slice(firstBrace, lastBrace + 1);
-    try {
-      return JSON.parse(candidate);
-    } catch (e) {
-      // Last attempt: try to find a balanced object from the first {
-      let depth = 0;
-      let start = firstBrace;
-      for (let i = firstBrace; i < text.length; i++) {
-        if (text[i] === '{') depth++;
-        else if (text[i] === '}') {
-          depth--;
-          if (depth === 0) {
-            try { return JSON.parse(text.slice(start, i + 1)); }
-            catch {}
-            break;
-          }
-        }
-      }
-    }
-  }
-  throw new Error('Could not parse JSON from response. Raw text: ' + rawText.slice(0, 200));
-}
-
-// ============================================================
-// NEWS SLIDE GENERATION — single viral news-style headline post
-// ============================================================
-async function generateNewsSlide(topic, btn) {
-  const wantContextSlide = !!(document.getElementById('newsContextSlideToggle')?.checked);
-
+function buildNewsPrompt(topic, wantContextSlide) {
   const sharedGuardrails = `
 ════════════════════════════════════════════════════════
 ⚠️ CRITICAL FACTUAL GUARDRAILS — READ BEFORE WRITING
@@ -1081,7 +1130,7 @@ Slide 2 must continue slide 1's topic with deeper context, same defensible tone.
     "footer": "5-10 words. Action or curiosity."
   }` : '';
 
-  const prompt = `You are writing ${wantContextSlide ? 'TWO' : 'a SINGLE'} news-style Instagram/TikTok slide(s) for SugarPause — an app helping women in menopause quit sugar.
+  return `You are writing ${wantContextSlide ? 'TWO' : 'a SINGLE'} news-style Instagram/TikTok slide(s) for SugarPause — an app helping women in menopause quit sugar.
 
 TOPIC: "${topic}"
 
@@ -1096,61 +1145,263 @@ ${slide2Instructions}
 Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
 ${jsonSlide1}${jsonContext}
 }`;
+}
+
+async function generateOneCarousel(topic, count) {
+  const itemCount = count ?? (parseInt(document.getElementById('slideCount').value, 10) || 5);
+  const prompt = buildCarouselPrompt(topic, itemCount);
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, maxTokens: 2000 })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Server ${res.status}: ${err}`);
+  }
+  const { text: rawText } = await res.json();
+  const parsed = extractJsonFromResponse(rawText);
+  const deck = [];
+  deck.push({ type: 'hook', title: parsed.hook, body: '', image: null });
+  (parsed.items || []).forEach(item => {
+    deck.push({
+      type: 'item',
+      title: item.name,
+      body: item.caption,
+      image: null,
+      imageQuery: item.image_query || item.name,
+      imageOptions: null
+    });
+  });
+  deck.push({ type: 'cta', title: '', body: '', image: null });
+  deck._format = parsed.format;
+  return deck;
+}
+
+async function generateOneNewsSlide(topic, options = {}) {
+  const wantContextSlide = options.wantContextSlide ?? !!(document.getElementById('newsContextSlideToggle')?.checked);
+  const prompt = buildNewsPrompt(topic, wantContextSlide);
+  const res = await fetch('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1000 })
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Server ${res.status}: ${err}`);
+  }
+  const { text: rawText } = await res.json();
+  const parsed = extractJsonFromResponse(rawText);
+  return buildNewsSlidesFromParsed(parsed, topic, wantContextSlide);
+}
+
+function delay(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function updateBatchModalSubtitle() {
+  const el = document.getElementById('batchModalSubtitle');
+  if (!el) return;
+  if (contentType === 'news') {
+    const ctx = document.getElementById('newsContextSlideToggle')?.checked;
+    el.textContent = ctx
+      ? 'Will generate two news slides per topic (headline + context).'
+      : 'Will generate one news slide per topic.';
+  } else {
+    const styleLabel = visualStyle === 'bold' ? 'bold black' : 'soft gradient';
+    el.textContent = `Will generate one full carousel deck per topic in ${styleLabel} style.`;
+  }
+}
+
+function updateBatchTopicCount() {
+  const input = document.getElementById('batchTopicsInput');
+  const countEl = document.getElementById('batchTopicCount');
+  const btn = document.getElementById('batchGenerateAllBtn');
+  if (!input || !countEl || !btn) return;
+  const topics = parseBatchTopics(input.value);
+  const n = topics.length;
+  countEl.textContent = n === 1 ? '1 topic detected' : `${n} topics detected`;
+  btn.textContent = `Generate All (${n})`;
+  btn.disabled = n === 0;
+}
+
+function openBatchModal() {
+  const modal = document.getElementById('batchModal');
+  const input = document.getElementById('batchTopicsInput');
+  if (!modal || !input) return;
+  input.value = localStorage.getItem('sugarpause_batch_input') || '';
+  updateBatchModalSubtitle();
+  updateBatchTopicCount();
+  modal.hidden = false;
+  input.focus();
+}
+
+function closeBatchModal() {
+  const modal = document.getElementById('batchModal');
+  if (modal) modal.hidden = true;
+}
+
+function setBatchProgress(text, visible) {
+  const bar = document.getElementById('batchProgress');
+  if (!bar) return;
+  if (visible) {
+    bar.hidden = false;
+    bar.textContent = text;
+  } else {
+    bar.hidden = true;
+    bar.textContent = '';
+  }
+}
+
+async function batchGenerate() {
+  const input = document.getElementById('batchTopicsInput');
+  const topics = parseBatchTopics(input?.value || '');
+  if (topics.length === 0) return;
+
+  localStorage.setItem('sugarpause_batch_input', input.value);
+  closeBatchModal();
+
+  const genBtn = document.getElementById('generateBtn');
+  const batchBtn = document.getElementById('batchBtn');
+  const slideCount = parseInt(document.getElementById('slideCount').value, 10) || 5;
+  const wantContext = !!(document.getElementById('newsContextSlideToggle')?.checked);
+
+  genBtn.disabled = true;
+  if (batchBtn) batchBtn.disabled = true;
+
+  slides = [];
+  batchDownloadHint = { firstTopic: topics[0], topicCount: topics.length };
+  document.getElementById('editorPanel').hidden = false;
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (let i = 0; i < topics.length; i++) {
+    const topic = topics[i];
+    const slideWord = contentType === 'news'
+      ? (wantContext ? 'slides' : 'slide')
+      : 'deck';
+    setBatchProgress(`Generating ${slideWord} ${i + 1} of ${topics.length}: ${topic}`, true);
+
+    try {
+      let deck;
+      if (contentType === 'news') {
+        deck = await generateOneNewsSlide(topic, { wantContextSlide: wantContext });
+      } else {
+        deck = await generateOneCarousel(topic, slideCount);
+      }
+      slides.push(...deck);
+      succeeded++;
+      renderEditors();
+      renderAll();
+    } catch (e) {
+      failed++;
+      console.error(`[batch] topic ${i + 1} failed:`, topic, e);
+      showStatus(`Skipped topic ${i + 1}: ${topic} — ${e.message}`, 'error');
+    }
+
+    if (i < topics.length - 1) await delay(200);
+  }
+
+  setBatchProgress('', false);
+  genBtn.disabled = false;
+  if (batchBtn) batchBtn.disabled = false;
+
+  const totalSlides = slides.length;
+  if (failed === 0) {
+    showStatus(`Generated ${succeeded} topics → ${totalSlides} total slides.`, 'success');
+  } else {
+    showStatus(`Generated ${succeeded} of ${topics.length} topics → ${totalSlides} total slides. ${failed} failed (see console).`, failed === topics.length ? 'error' : 'info');
+  }
+}
+
+(function initBatchGenerate() {
+  const batchBtn = document.getElementById('batchBtn');
+  const modal = document.getElementById('batchModal');
+  const input = document.getElementById('batchTopicsInput');
+  const cancelBtn = document.getElementById('batchCancelBtn');
+  const generateAllBtn = document.getElementById('batchGenerateAllBtn');
+  const card = modal?.querySelector('.batch-modal-card');
+
+  if (!batchBtn || !modal) return;
+
+  batchBtn.addEventListener('click', openBatchModal);
+  cancelBtn?.addEventListener('click', closeBatchModal);
+  generateAllBtn?.addEventListener('click', () => batchGenerate());
+
+  input?.addEventListener('input', () => {
+    updateBatchTopicCount();
+    localStorage.setItem('sugarpause_batch_input', input.value);
+  });
+
+  modal.addEventListener('click', e => {
+    if (e.target === modal) closeBatchModal();
+  });
+  card?.addEventListener('click', e => e.stopPropagation());
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeBatchModal();
+  });
+
+  document.getElementById('newsContextSlideToggle')?.addEventListener('change', () => {
+    if (!modal.hidden) updateBatchModalSubtitle();
+  });
+})();
+
+// ============================================================
+// GENERATE COPY VIA CLAUDE (single)
+// ============================================================
+async function generateContent() {
+  console.log('[generateContent] called. contentType =', contentType);
+  const topic = document.getElementById('topic').value.trim();
+  const count = parseInt(document.getElementById('slideCount').value, 10) || 5;
+
+  if (!topic) { showStatus('Enter a topic first.', 'error'); return; }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Generating...';
+  showStatus('Calling Claude to write your copy...', 'info');
+  batchDownloadHint = null;
+
+  if (contentType === 'news') {
+    console.log('[generateContent] branching to generateNewsSlide');
+    await generateNewsSlide(topic, btn);
+    return;
+  }
 
   try {
-    const res = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1000 })
-    });
+    const deck = await generateOneCarousel(topic, count);
+    slides = deck;
+    document.getElementById('editorPanel').hidden = false;
+    renderEditors();
+    renderAll();
+    const formatLabel = deck._format === 'narrative' ? '📖 Narrative story arc' :
+                        deck._format === 'list' ? '📋 List/roundup' :
+                        'Generated';
+    showStatus(`${formatLabel}. Add images and tweak text as needed.`, 'success');
+  } catch (e) {
+    console.error(e);
+    showStatus('Error: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ Generate Copy with AI';
+  }
+}
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Server ${res.status}: ${err}`);
-    }
+async function generateNewsSlide(topic, btn) {
+  const wantContextSlide = !!(document.getElementById('newsContextSlideToggle')?.checked);
+  batchDownloadHint = null;
 
-    const { text: rawText } = await res.json();
-    const parsed = extractJsonFromResponse(rawText);
-
-    const slide1 = {
-      type: 'news',
-      badge: (parsed.badge || 'NEWS').toUpperCase(),
-      headline: parsed.headline || '',
-      highlights: Array.isArray(parsed.highlights) ? parsed.highlights : [],
-      explainer: parsed.explainer || '',
-      image: null,
-      imageQuery: parsed.image_query || topic,
-      imageOptions: null
-    };
-
-    slides = [slide1];
-
-    const cs = parsed.context_slide;
-    const rawBullets = cs && Array.isArray(cs.bullets) ? cs.bullets : [];
-    const normBullets = rawBullets.slice(0, 4).map(b => ({
-      label: String(b.label || '').trim().toUpperCase(),
-      text: String(b.text || '').trim()
-    })).filter(b => b.label || b.text);
-
-    if (wantContextSlide && cs && normBullets.length >= 3) {
-      slides.push({
-        type: 'news_context',
-        intro: String(cs.intro || '').trim(),
-        bullets: normBullets,
-        footer: String(cs.footer || '').trim(),
-        image: null,
-        imageQuery: parsed.image_query || topic,
-        imageOptions: null
-      });
+  try {
+    slides = await generateOneNewsSlide(topic, { wantContextSlide });
+    if (wantContextSlide && slides.length >= 2) {
       showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
+    } else if (wantContextSlide) {
+      showStatus('📰 Headline slide ready, but the model did not return a valid context_slide (need 3-4 bullets). Try generating again.', 'info');
     } else {
-      if (wantContextSlide) {
-        showStatus('📰 Headline slide ready, but the model did not return a valid context_slide (need 3-4 bullets). Try generating again.', 'info');
-      } else {
-        showStatus('📰 News slide generated. Add a background image to complete it.', 'success');
-      }
+      showStatus('📰 News slide generated. Add a background image to complete it.', 'success');
     }
-
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
@@ -1162,6 +1413,7 @@ ${jsonSlide1}${jsonContext}
     btn.innerHTML = '✨ Generate News Slide';
   }
 }
+
 // ============================================================
 // AUTO-FIND IMAGES VIA SERPAPI (via /api/search-images on Vercel)
 // ============================================================
@@ -2620,11 +2872,15 @@ async function downloadAll() {
 
   try {
     const zip = new JSZip();
-    const topic = (document.getElementById('topic').value || 'sugarpause')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .slice(0, 40);
+    let topic;
+    if (batchDownloadHint && batchDownloadHint.topicCount > 1) {
+      const first = slugifyTopic(batchDownloadHint.firstTopic);
+      topic = first ? `${first}-and-more` : 'slides-batch';
+    } else if (batchDownloadHint && batchDownloadHint.topicCount === 1) {
+      topic = slugifyTopic(batchDownloadHint.firstTopic) || 'sugarpause';
+    } else {
+      topic = slugifyTopic(document.getElementById('topic').value) || 'sugarpause';
+    }
     const folder = zip.folder(topic || 'sugarpause');
 
     // Convert each canvas to a PNG blob and add to zip
@@ -2660,5 +2916,21 @@ async function downloadAll() {
   }
 }
 </script>
+
+<div id="batchModal" class="batch-modal-overlay" hidden>
+  <div class="batch-modal-card" role="dialog" aria-labelledby="batchModalTitle">
+    <h3 id="batchModalTitle">Batch Generate</h3>
+    <p class="batch-modal-subtitle" id="batchModalSubtitle"></p>
+    <textarea id="batchTopicsInput" rows="8" placeholder="1. First topic\n2. Second topic\n3. Third topic"></textarea>
+    <p class="batch-topic-count" id="batchTopicCount">0 topics detected</p>
+    <div class="batch-modal-actions">
+      <button type="button" class="secondary" id="batchCancelBtn">Cancel</button>
+      <button type="button" class="primary-batch" id="batchGenerateAllBtn" disabled>Generate All (0)</button>
+    </div>
+  </div>
+</div>
+
+<div id="batchProgress" class="batch-progress-bar" hidden></div>
+
 </body>
 </html>
