@@ -1206,86 +1206,110 @@ function drawPointlessItem(ctx, slide, idx) {
 }
 
 function drawPointlessCTA(ctx) {
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#0a0a18');
-  grad.addColorStop(0.5, '#141428');
-  grad.addColorStop(1, '#0a0a18');
-  ctx.fillStyle = grad;
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#08081a');
+  bg.addColorStop(0.45, '#101028');
+  bg.addColorStop(1, '#08081a');
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  const glow = ctx.createRadialGradient(W * 0.5, H * 0.46, 0, W * 0.5, H * 0.46, 640);
-  glow.addColorStop(0, 'rgba(167, 139, 250, 0.5)');
-  glow.addColorStop(0.5, 'rgba(91, 141, 239, 0.15)');
-  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, W, H);
+  const barGrad = ctx.createLinearGradient(0, 0, W, 0);
+  barGrad.addColorStop(0, '#a78bfa');
+  barGrad.addColorStop(0.5, '#7c5ce0');
+  barGrad.addColorStop(1, '#5b4bb7');
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(0, 0, W, 5);
 
-  drawGrain(ctx, 0.04);
+  drawGrain(ctx, 0.035);
 
-  const logoSize = 132;
-  const tagSize = 38;
-  const followSize = 44;
-  const earlySize = 30;
   const tagline = 'The intelligence layer for prediction markets.';
   const followLine = 'Follow to see what the market\'s missing';
   const earlyLine = 'Get early access when we launch';
 
-  ctx.font = `800 ${logoSize}px Inter, -apple-system, sans-serif`;
-  const logoH = logoSize * 0.9;
+  const cardW = W - 112;
+  const cardX = (W - cardW) / 2;
+  const innerW = cardW - 128;
+  const logoSize = 118;
+  const tagSize = 34;
+  const followSize = 40;
+
   ctx.font = `400 ${tagSize}px Inter, -apple-system, sans-serif`;
-  const tagLines = layoutLines(ctx, tagline, W - 160);
-  const tagLH = Math.round(tagSize * 1.35);
+  const tagLines = layoutLines(ctx, tagline, innerW).slice(0, 2);
+  const tagLH = Math.round(tagSize * 1.32);
   const tagBlockH = tagLines.length * tagLH;
 
-  const blockH = logoH + 36 + tagBlockH + 120 + followSize + 80 + earlySize;
-  let blockTop = Math.round((H - blockH) / 2) - 24;
-  blockTop = Math.max(100, Math.min(blockTop, 180));
+  ctx.font = `600 ${followSize}px Inter, -apple-system, sans-serif`;
+  const followLines = layoutLines(ctx, followLine, innerW).slice(0, 2);
+  const followLH = Math.round(followSize * 1.22);
+  const followBlockH = followLines.length * followLH;
+
+  const logoH = Math.round(logoSize * 0.88);
+  const pillH = 64;
+  const pillW = Math.min(innerW, 620);
+  const gapSm = 28;
+  const gapMd = 44;
+  const cardPadY = 80;
+  const cardH = cardPadY * 2 + logoH + gapSm + tagBlockH + gapMd + followBlockH + gapMd + pillH;
+  const cardY = Math.round((H - cardH) / 2);
+  const cx = W / 2;
+
+  const cardGlow = ctx.createRadialGradient(cx, cardY + cardH * 0.45, 0, cx, cardY + cardH * 0.45, cardW * 0.72);
+  cardGlow.addColorStop(0, 'rgba(167, 139, 250, 0.22)');
+  cardGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = cardGlow;
+  ctx.fillRect(cardX - 40, cardY - 40, cardW + 80, cardH + 80);
+
+  ctx.fillStyle = 'rgba(18, 18, 42, 0.92)';
+  roundRect(ctx, cardX, cardY, cardW, cardH, 28);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(167, 139, 250, 0.28)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, cardX, cardY, cardW, cardH, 28);
+  ctx.stroke();
+
+  let y = cardY + cardPadY + logoH;
 
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
   ctx.font = `800 ${logoSize}px Inter, -apple-system, sans-serif`;
-  ctx.shadowColor = 'rgba(167, 139, 250, 0.7)';
-  ctx.shadowBlur = 56;
-  ctx.fillText('Pointless', W / 2, blockTop + logoH);
+  ctx.shadowColor = 'rgba(167, 139, 250, 0.55)';
+  ctx.shadowBlur = 36;
+  ctx.fillText('Pointless', cx, y);
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  y += gapSm;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
   ctx.font = `400 ${tagSize}px Inter, -apple-system, sans-serif`;
-  let ty = blockTop + logoH + 44;
   tagLines.forEach((line, i) => {
-    ctx.fillText(line, W / 2, ty + (i + 1) * tagLH);
+    ctx.fillText(line, cx, y + (i + 1) * tagLH);
   });
-
-  const dividerY = ty + tagBlockH + 56;
-  const divGrad = ctx.createLinearGradient(W * 0.2, dividerY, W * 0.8, dividerY);
-  divGrad.addColorStop(0, 'rgba(167, 139, 250, 0)');
-  divGrad.addColorStop(0.5, 'rgba(167, 139, 250, 0.45)');
-  divGrad.addColorStop(1, 'rgba(167, 139, 250, 0)');
-  ctx.strokeStyle = divGrad;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(W * 0.18, dividerY);
-  ctx.lineTo(W * 0.82, dividerY);
-  ctx.stroke();
+  y += tagBlockH + gapMd;
 
   ctx.fillStyle = '#ffffff';
   ctx.font = `600 ${followSize}px Inter, -apple-system, sans-serif`;
-  const followY = dividerY + 72;
-  const followLines = layoutLines(ctx, followLine, W - 120);
-  const followLH = Math.round(followSize * 1.25);
   followLines.forEach((line, i) => {
-    ctx.fillText(line, W / 2, followY + (i + 1) * followLH);
+    ctx.fillText(line, cx, y + (i + 1) * followLH);
   });
+  y += followBlockH + gapMd;
 
-  const earlyY = H - 100;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-  ctx.font = `500 ${earlySize}px Inter, -apple-system, sans-serif`;
-  ctx.fillText(earlyLine, W / 2, earlyY);
-
-  ctx.strokeStyle = 'rgba(167, 139, 250, 0.25)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, W / 2 - 280, earlyY - 52, 560, 64, 32);
+  const pillX = cx - pillW / 2;
+  const pillY = y;
+  const pillGrad = ctx.createLinearGradient(pillX, pillY, pillX + pillW, pillY);
+  pillGrad.addColorStop(0, 'rgba(167, 139, 250, 0.35)');
+  pillGrad.addColorStop(1, 'rgba(91, 141, 239, 0.35)');
+  ctx.fillStyle = pillGrad;
+  roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, pillX, pillY, pillW, pillH, pillH / 2);
   ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '600 28px Inter, -apple-system, sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(earlyLine, cx, pillY + pillH / 2);
+  ctx.textBaseline = 'alphabetic';
 }
 
 
@@ -1538,6 +1562,7 @@ SELF-CHECK BEFORE RETURNING:
 3. Did I give declarative advice instead of describing what's happening?
 4. Did I use any em dash or en dash?
 5. (Pointless only) Did I use any banned betting phrase: bet, betting, odds, the line, the spread, sharps, wager?
+6. (Pointless ACT 1 only) Did headline, explainer, or context_slide mention markets, traders, pricing, contracts, or implied probability? If yes, rewrite ACT 1 as pure breaking news.
 If any answer is yes → silently rewrite before returning.
 
 ════════════════════════════════════════════════
@@ -1619,6 +1644,7 @@ HARD RULES (apply to all output, both brands, both formats)
 - DO NOT attribute claims to specific named sources/outlets/people.
 - DO NOT use em dashes or en dashes anywhere.
 - DO NOT use Pointless-banned betting phrases when brand is pointless.
+- (Pointless) ACT 1 slides are NEWS ONLY. Market/trader language belongs ONLY in dataQuestion and dataTakeaway.
 - DO NOT give declarative advice.
 - DO use brand-appropriate vocabulary, hashtags, and visual cues.
 - Every output must reference SPECIFIC details from the input. Never generic.
