@@ -988,72 +988,116 @@ function drawPointlessStory(ctx, slide) {
   drawWrappedText(ctx, slide.body || '', 72, 180, W - 144, 46, 920, 'left');
 }
 
-/** Pointless chart slide: white card, question, Yes + %, line chart, takeaway. */
+/** Pointless chart slide: white card, question, Yes + %, line chart, takeaway (full-bleed layout). */
 function drawPointlessData(ctx, slide) {
+  const padX = 64;
+  const padTop = 72;
+  const padBottom = 80;
+  const contentW = W - padX * 2;
+
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = '#5b8def';
-  ctx.font = '700 26px Inter, -apple-system, sans-serif';
+  ctx.font = '700 32px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('Pointless', W - 72, 72);
+  ctx.fillText('Pointless', W - padX, padTop);
 
   const question = slide.dataQuestion || slide.title || '';
   const optionLabel = slide.dataLabel || 'Yes';
   const pct = slide.chartPercent != null ? slide.chartPercent : (extractChartPercent(slide.dataTakeaway) || 58);
   const takeaway = formatTakeawayPercent(slide.dataTakeaway || slide.body || '', pct);
 
+  // Takeaway anchored to bottom — chart fills the middle
+  let takeSize = 34;
+  let takeLines = [];
+  for (const s of [34, 32, 30]) {
+    ctx.font = `500 ${s}px Inter, -apple-system, sans-serif`;
+    takeLines = layoutLines(ctx, takeaway, contentW).slice(0, 5);
+    if (takeLines.length <= 4 || s === 30) {
+      takeSize = s;
+      break;
+    }
+  }
+  const takeLH = Math.round(takeSize * 1.38);
+  const takeBlockH = takeLines.length * takeLH;
+  const takeY = H - padBottom - takeBlockH;
+
+  // Question — scale to width
+  let qSize = 52;
+  let qLines = [];
+  for (const s of [52, 48, 44, 40]) {
+    ctx.font = `800 ${s}px Inter, -apple-system, sans-serif`;
+    qLines = layoutLines(ctx, question, contentW).slice(0, 5);
+    if (qLines.length <= 4 || s === 40) {
+      qSize = s;
+      break;
+    }
+  }
+  const qLH = Math.round(qSize * 1.14);
+  let y = padTop + 52;
   ctx.fillStyle = '#111111';
   ctx.textAlign = 'left';
-  ctx.font = '800 40px Inter, -apple-system, sans-serif';
-  const qLines = layoutLines(ctx, question, W - 144).slice(0, 4);
-  let y = 130;
-  const qLH = 48;
+  ctx.font = `800 ${qSize}px Inter, -apple-system, sans-serif`;
   qLines.forEach((line, i) => {
-    ctx.fillText(line, 72, y + (i + 1) * qLH);
+    ctx.fillText(line, padX, y + (i + 1) * qLH);
   });
-  y += qLines.length * qLH + 36;
+  y += qLines.length * qLH + 40;
 
-  const optY = y;
+  // Option row band
+  const optBandH = 88;
+  const optBandY = y;
+  ctx.fillStyle = '#f4f7fe';
+  roundRect(ctx, padX, optBandY, contentW, optBandH, 16);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(91, 141, 239, 0.35)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, padX, optBandY, contentW, optBandH, 16);
+  ctx.stroke();
+
+  const optMidY = optBandY + optBandH / 2 + 6;
+  const radioX = padX + 36;
   ctx.strokeStyle = '#5b8def';
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 4;
   ctx.beginPath();
-  ctx.arc(88, optY, 14, 0, Math.PI * 2);
+  ctx.arc(radioX, optMidY, 18, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = '#5b8def';
   ctx.beginPath();
-  ctx.arc(88, optY, 7, 0, Math.PI * 2);
+  ctx.arc(radioX, optMidY, 9, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = '#111111';
-  ctx.font = '700 32px Inter, sans-serif';
+  ctx.font = '700 40px Inter, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(optionLabel, 120, optY + 12);
+  ctx.fillText(optionLabel, radioX + 36, optMidY + 14);
 
   ctx.fillStyle = '#5b8def';
   ctx.textAlign = 'right';
-  ctx.font = '800 40px Inter, sans-serif';
-  ctx.fillText(`${pct}%`, W - 72, optY + 12);
+  ctx.font = '800 52px Inter, sans-serif';
+  ctx.fillText(`${pct}%`, W - padX - 8, optMidY + 16);
 
-  const chartX = 72;
-  const chartY = optY + 70;
-  const chartW = W - 144;
-  const chartH = 340;
+  y = optBandY + optBandH + 36;
+
+  // Chart expands to fill space above takeaway
+  const chartX = padX;
+  const chartY = y;
+  const chartW = contentW;
+  const chartH = Math.max(420, takeY - chartY - 28);
 
   const areaGrad = ctx.createLinearGradient(0, chartY + chartH, 0, chartY);
-  areaGrad.addColorStop(0, 'rgba(91, 141, 239, 0.08)');
-  areaGrad.addColorStop(1, 'rgba(91, 141, 239, 0.35)');
+  areaGrad.addColorStop(0, 'rgba(91, 141, 239, 0.06)');
+  areaGrad.addColorStop(1, 'rgba(91, 141, 239, 0.42)');
   ctx.fillStyle = areaGrad;
 
   const points = [];
-  const n = 12;
+  const n = 14;
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
     const wave = Math.sin(t * Math.PI * 1.2) * 0.12 + Math.sin(t * Math.PI * 3.1) * 0.06;
-    const trend = 0.35 + t * 0.35 + wave;
-    const py = chartY + chartH - trend * chartH * 0.85;
-    const px = chartX + t * chartW;
-    points.push({ x: px, y: py });
+    const trend = 0.32 + t * 0.38 + wave;
+    const py = chartY + chartH - trend * chartH * 0.88;
+    points.push({ x: chartX + t * chartW, y: py });
   }
 
   ctx.beginPath();
@@ -1064,8 +1108,9 @@ function drawPointlessData(ctx, slide) {
   ctx.fill();
 
   ctx.strokeStyle = '#5b8def';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
   ctx.beginPath();
   points.forEach((p, i) => {
     if (i === 0) ctx.moveTo(p.x, p.y);
@@ -1076,16 +1121,18 @@ function drawPointlessData(ctx, slide) {
   const last = points[n - 1];
   ctx.fillStyle = '#5b8def';
   ctx.beginPath();
-  ctx.arc(last.x, last.y, 8, 0, Math.PI * 2);
+  ctx.arc(last.x, last.y, 11, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#333333';
-  ctx.font = '400 26px Inter, -apple-system, sans-serif';
+  ctx.fillStyle = '#2a2a2a';
+  ctx.font = `500 ${takeSize}px Inter, -apple-system, sans-serif`;
   ctx.textAlign = 'left';
-  const takeLines = layoutLines(ctx, takeaway, W - 144).slice(0, 4);
-  const takeY = chartY + chartH + 56;
   takeLines.forEach((line, i) => {
-    ctx.fillText(line, 72, takeY + i * 34);
+    ctx.fillText(line, padX, takeY + (i + 1) * takeLH - takeSize * 0.2);
   });
 }
 
@@ -1161,39 +1208,84 @@ function drawPointlessItem(ctx, slide, idx) {
 function drawPointlessCTA(ctx) {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#0a0a18');
-  grad.addColorStop(0.55, '#12122a');
+  grad.addColorStop(0.5, '#141428');
   grad.addColorStop(1, '#0a0a18');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  const glow = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, 520);
-  glow.addColorStop(0, 'rgba(167, 139, 250, 0.45)');
-  glow.addColorStop(0.55, 'rgba(91, 141, 239, 0.12)');
+  const glow = ctx.createRadialGradient(W * 0.5, H * 0.46, 0, W * 0.5, H * 0.46, 640);
+  glow.addColorStop(0, 'rgba(167, 139, 250, 0.5)');
+  glow.addColorStop(0.5, 'rgba(91, 141, 239, 0.15)');
   glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
   drawGrain(ctx, 0.04);
 
+  const logoSize = 132;
+  const tagSize = 38;
+  const followSize = 44;
+  const earlySize = 30;
+  const tagline = 'The intelligence layer for prediction markets.';
+  const followLine = 'Follow to see what the market\'s missing';
+  const earlyLine = 'Get early access when we launch';
+
+  ctx.font = `800 ${logoSize}px Inter, -apple-system, sans-serif`;
+  const logoH = logoSize * 0.9;
+  ctx.font = `400 ${tagSize}px Inter, -apple-system, sans-serif`;
+  const tagLines = layoutLines(ctx, tagline, W - 160);
+  const tagLH = Math.round(tagSize * 1.35);
+  const tagBlockH = tagLines.length * tagLH;
+
+  const blockH = logoH + 36 + tagBlockH + 120 + followSize + 80 + earlySize;
+  let blockTop = Math.round((H - blockH) / 2) - 24;
+  blockTop = Math.max(100, Math.min(blockTop, 180));
+
   ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
-  ctx.font = '800 96px Inter, -apple-system, sans-serif';
-  ctx.shadowColor = 'rgba(167, 139, 250, 0.65)';
-  ctx.shadowBlur = 48;
-  ctx.fillText('Pointless', W / 2, H * 0.38);
+  ctx.font = `800 ${logoSize}px Inter, -apple-system, sans-serif`;
+  ctx.shadowColor = 'rgba(167, 139, 250, 0.7)';
+  ctx.shadowBlur = 56;
+  ctx.fillText('Pointless', W / 2, blockTop + logoH);
   ctx.shadowBlur = 0;
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-  ctx.font = '400 32px Inter, -apple-system, sans-serif';
-  ctx.fillText('The intelligence layer for prediction markets.', W / 2, H * 0.38 + 70);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+  ctx.font = `400 ${tagSize}px Inter, -apple-system, sans-serif`;
+  let ty = blockTop + logoH + 44;
+  tagLines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, ty + (i + 1) * tagLH);
+  });
+
+  const dividerY = ty + tagBlockH + 56;
+  const divGrad = ctx.createLinearGradient(W * 0.2, dividerY, W * 0.8, dividerY);
+  divGrad.addColorStop(0, 'rgba(167, 139, 250, 0)');
+  divGrad.addColorStop(0.5, 'rgba(167, 139, 250, 0.45)');
+  divGrad.addColorStop(1, 'rgba(167, 139, 250, 0)');
+  ctx.strokeStyle = divGrad;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(W * 0.18, dividerY);
+  ctx.lineTo(W * 0.82, dividerY);
+  ctx.stroke();
 
   ctx.fillStyle = '#ffffff';
-  ctx.font = '600 34px Inter, -apple-system, sans-serif';
-  ctx.fillText('Follow to see what the market\'s missing', W / 2, H * 0.72);
+  ctx.font = `600 ${followSize}px Inter, -apple-system, sans-serif`;
+  const followY = dividerY + 72;
+  const followLines = layoutLines(ctx, followLine, W - 120);
+  const followLH = Math.round(followSize * 1.25);
+  followLines.forEach((line, i) => {
+    ctx.fillText(line, W / 2, followY + (i + 1) * followLH);
+  });
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.font = '400 22px Inter, -apple-system, sans-serif';
-  ctx.fillText('Get early access when we launch', W / 2, H - 72);
+  const earlyY = H - 100;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font = `500 ${earlySize}px Inter, -apple-system, sans-serif`;
+  ctx.fillText(earlyLine, W / 2, earlyY);
+
+  ctx.strokeStyle = 'rgba(167, 139, 250, 0.25)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, W / 2 - 280, earlyY - 52, 560, 64, 32);
+  ctx.stroke();
 }
 
 
