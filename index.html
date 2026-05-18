@@ -631,9 +631,9 @@
         </div>
 
         <div class="field" id="slideCountField">
-          <label>Number of food/item slides</label>
-          <input type="text" id="slideCount" value="5" />
-          <p class="hint">Hook + N items + CTA = total slides</p>
+          <label>Slides per carousel deck</label>
+          <input type="text" id="slideCount" value="6" />
+          <p class="hint">3–6 total: hook, story chunks, data slide, and CTA</p>
         </div>
 
         <div class="field" id="visualStyleField">
@@ -856,122 +856,251 @@ function parseBatchTopics(raw) {
     .filter(Boolean);
 }
 
-function buildCarouselPrompt(topic, count) {
-  return `You are writing a SugarPause Instagram/TikTok slideshow. SugarPause helps women in menopause quit sugar and manage symptoms (hot flashes, night sweats, brain fog, weight gain, sleep issues, mood swings).
-
-TOPIC: "${topic}"
-
-VOICE & RULES (apply to both formats below):
-- ALWAYS include the word "menopause" in the hook (slide 1) so the algorithm targets the right women
-- NEVER attacking, shaming, or condescending. The enemy is Big Food, misleading marketing, and uninformed doctors — never the woman watching
-- Empowering tone: "you were lied to" not "you should know better"
-- Reveal hidden info like forbidden knowledge a friend is sharing
-- Short, punchy, scannable. Menopause brain fog is real — don't make them work for it
-- Tie sugar/food DIRECTLY to specific menopause symptoms (hot flashes, sleep, weight, brain fog, mood)
-
-═══════════════════════════════════════════════════════════════
-⚠️ CRITICAL FACTUAL GUARDRAILS — applies to hook AND all captions
-
-This brand has real users. Misinformation breaks trust and creates legal risk. Stay defensible.
-
-🚫 NEVER USE phrases that imply uncited specific studies:
-- "Researchers confirm…", "New study finds…", "Scientists prove…"
-- "Doctors warn…" (without a named source)
-- "Research shows…", "Study reveals…"
-
-🚫 NEVER USE ranked superlatives unless they're well-established consensus:
-- "#1 cause", "the main driver", "the leading reason"
-- For menopause + sugar, the #1 driver of weight gain is **declining estrogen → insulin resistance**. Sugar is an amplifier, not the root.
-
-🚫 NEVER fabricate specific stats ("destroys 73% of estrogen", "10x your risk")
-   — UNLESS the number is general consensus (e.g. grams of sugar in a known product is fine; invented mechanisms are not).
-
-✅ USE this defensible language:
-- "fuels", "drives", "amplifies", "worsens", "linked to", "tied to"
-- "a major factor in", "one of the biggest drivers"
-- "makes [symptom] harder", "your hormones can't fight"
-
-✅ DEFENSIBLE FACTS you can build on:
-- Declining estrogen during menopause causes insulin resistance
-- Sugar spikes blood glucose, worsening insulin resistance
-- Insulin resistance promotes belly fat storage and inhibits fat loss
-- Blood sugar swings can trigger or worsen hot flashes
-- Inflammation from sugar can worsen menopause symptoms
-- Liquid sugar (soda, lattes) hits the bloodstream faster than solid food
-- Many "healthy" foods (yogurt, granola, juice) have hidden added sugar
-- Cortisol from blood sugar crashes disrupts sleep and weight regulation
-- Specific gram counts of sugar in real products are fine to cite (e.g. "32g of sugar in a grande PSL")
-
-🧠 SELF-CHECK each slide before finalizing:
-1. Could a doctor or journalist defensibly back this exact claim?
-2. Am I implying a specific study I haven't cited?
-3. Am I using a #1/the/only superlative that overstates the evidence?
-If yes → rewrite.
-═══════════════════════════════════════════════════════════════
-
-═══════════════════════════════════════════════════════════════
-STEP 1 — DETECT THE FORMAT before writing anything.
-
-The topic is either a NARRATIVE hook (a story is implied) or a LIST hook (a roundup is implied). You must choose one.
-
-NARRATIVE signals (use story format if ANY of these apply):
-- First-person experience: "I tried…", "what happened when I…", "here's what I learned…", "I let my husband…"
-- Family/relationship drama: mentions husband, kids, family, friends, "they think I'm…", "everyone said…"
-- Conflict or tension implied: "they don't believe me", "I'm dramatic", "proof that…", "I was right"
-- Time-bound journey: "30 days", "one week", "a year of…", "before vs after"
-- Scene/place setting: "going to Target", "at thanksgiving", "in the grocery store", "at the doctor"
-- Phrases like "this happened", "here's proof", "let me show you", "the moment I realized"
-
-LIST signals (use roundup format if the topic is just a categorical claim):
-- "X foods that…", "X drinks…", "X ways…", "X reasons…"
-- "Why X happens", "what causes X", "how to X"
-- Generic claims about a category without a personal angle
-
-If unsure, prefer NARRATIVE — it performs better.
-
-═══════════════════════════════════════════════════════════════
-STEP 2 — Generate based on format chosen.
-
-▓▓▓ NARRATIVE FORMAT ▓▓▓
-Build a STORY ARC across the slides. Slides are not items — they are story beats.
-
-Requirements:
-1. CONFLICT/TENSION — set up early. Who doubts her? What's the problem? What's at stake?
-2. CAUSE & EFFECT — each slide leads to the next. Something happens, then something else happens because of it.
-3. SPECIFIC DETAILS — real people ("my husband Mark"), real places ("Target on a Sunday"), real timelines ("by day 4"), real moments ("walking past the bakery aisle"). Avoid generic vague details.
-4. BUILD TO A CONCLUSION — the final item slide should be the payoff that PROVES the hook's claim.
-5. EVERY SLIDE connects back to the central narrative — no random tangents.
-
-For NARRATIVE slides:
-- "name" = a scene title or beat (e.g. "Aisle 7", "Day 3", "His grocery cart", "The kitchen at 11pm"). Keep short, 2-5 words.
-- "caption" = 2-3 sentences advancing the story with sensory/emotional detail. Show, don't tell.
-- "image_query" = a SCENE search query (not a product). e.g. "woman frustrated grocery store cart", "exhausted woman in kitchen late night", "thanksgiving dinner table family", "husband shopping aisle confused". Stock-photo style scenes that match the beat.
-
-▓▓▓ LIST FORMAT ▓▓▓
-Standard roundup of specific items in a category.
-
-For LIST slides:
-- "name" = the specific product/food/drink name. Be specific and recognizable.
-- "caption" = 2-3 sentences. Direct. Specific numbers (grams of sugar) if possible. Tie to a menopause symptom.
-- "image_query" = a specific google image search for a clear product photo. e.g. "Starbucks Pumpkin Spice Latte cup", "Fage greek yogurt container", "Quaker instant oatmeal packet". Avoid generic queries.
-
-═══════════════════════════════════════════════════════════════
-STEP 3 — Output
-
-Return a JSON object with this exact shape, no markdown fences, no commentary:
-{
-  "format": "narrative" or "list",
-  "hook": "Bold hook for slide 1, must include 'menopause', max 8 words",
-  "items": [
-    {
-      "name": "Scene title (narrative) OR product name (list)",
-      "caption": "2-3 short sentences following the rules for the chosen format.",
-      "image_query": "Scene search (narrative) OR product search (list)"
-    }
-  ]
+function getActiveBrand() {
+  return localStorage.getItem('sugarpause_brand') || 'sugarpause';
 }
 
-Generate ${count} items. Make every slide count toward the hook's promise.`;
+function clampSlideCount(n) {
+  const v = parseInt(n, 10);
+  if (isNaN(v)) return 6;
+  return Math.min(6, Math.max(3, v));
+}
+
+function buildGenerationPrompt({ brand, format, slideCount, includeContextSlide, topic }) {
+  const count = clampSlideCount(slideCount);
+  const ctx = includeContextSlide ? 'true' : 'false';
+
+  return `You write social media slideshow copy for two different brands. The current brand and output format are passed in via variables:
+
+BRAND: ${brand}
+FORMAT: ${format}
+SLIDE_COUNT: ${count}
+INCLUDE_CONTEXT_SLIDE: ${ctx}
+TOPIC: "${topic}"
+
+════════════════════════════════════════════════
+STEP 1 — KNOW WHICH BRAND YOU'RE WRITING FOR
+════════════════════════════════════════════════
+
+IF BRAND IS "sugarpause":
+  Audience: women in menopause / perimenopause. Health-conscious, frustrated with the food industry, looking for empowering info.
+  Voice: warm, empowering, "Big Food is the villain" energy. Treats women in menopause like smart adults who have been lied to about sugar/hormones/metabolism. Slightly conspiratorial in a "they don't want you to know this" way.
+  Vocabulary: hormone health, glucose, cortisol, insulin resistance, metabolic health, perimenopause, hot flashes, sleep, mood swings, "Big Food," "Big Pharma," processed foods.
+  Hooks lean: revelation / forbidden knowledge / "what your doctor isn't telling you" / "this is why you can't lose weight after 40"
+  Vibe: warm cream, mauve, soft. Friendly but pissed at the system.
+  Hashtags: #menopause #perimenopause #hormonehealth #sugarpause + topical
+  AVOID: medical advice in declarative form ("take this supplement"), specific drug recommendations, diagnosis language, body-shaming, fearmongering about specific brands by name.
+
+IF BRAND IS "pointless":
+  Audience: traders, sports bettors, market nerds, prediction market followers (Kalshi, Polymarket).
+  Voice: dramatic, specific, consequence-driven. Like a sports documentary or sharp analyst calling out what the crowd is missing.
+  Vocabulary: markets, traders, implied probability, volume, flow, mispricing, contracts, positioning, the chart, the signal.
+  Hooks lean: stakes / consequence / "what the market is seeing" / contrarian takes
+  Vibe: dark navy / purple. Confident, observational, never preachy.
+  Hashtags: #kalshi #predictionmarkets #pointless + topical
+  BANNED phrases (compliance hard rule): "bet", "betting", "odds", "the line", "the spread", "sharps", "sharp money", "money moving", "wager"
+  Use defensible language instead: "markets are pricing", "traders are positioning", "implied probability shifted", "volume spiked", "the spread widened", "the contract is moving"
+  AVOID: fabricated percentages (use directional language), fake source attributions ("according to Bloomberg"), declarative financial advice ("buy this contract").
+
+════════════════════════════════════════════════
+STEP 2 — PICK THE ANGLE (do this internally)
+════════════════════════════════════════════════
+
+Choose ONE of two angles based on the topic:
+
+A) NEWS BREAK — the topic is a real event, study, ruling, or market-moving development. Voice: anchor reporting what just happened + what it means.
+   - SugarPause example: "New study links seed oils to perimenopause weight gain"
+   - Pointless example: "Wemby dropped 12 blocks in Game 1"
+
+B) CONTRARIAN TAKE — the topic is opinion, a hot take, or a "the crowd is wrong" angle. Voice: sharp call-out of what people are missing.
+   - SugarPause example: "Stop counting calories after 40. Track these 3 things instead."
+   - Pointless example: "The Rockets are not a playoff team. They never were."
+
+The angle is internal. Do NOT return it as a field. USE it to shape every other field.
+
+════════════════════════════════════════════════
+STEP 3 — FACTUAL GUARDRAILS (apply to both brands)
+════════════════════════════════════════════════
+
+NEVER FABRICATE specific numbers (percentages, study sample sizes, market prices, dollar amounts) unless they appeared in the input. Use directional language instead: "studies suggest", "research shows", "the market is pricing higher", "traders are favoring".
+
+NEVER attribute claims to specific named sources you can't verify. No "According to Bloomberg / Harvard / NIH / ESPN…". Use generic framings: "research shows", "experts have found", "the market is signaling".
+
+NEVER give declarative advice in either domain. No "take this supplement" (SugarPause) or "buy this contract" (Pointless). Observational only.
+
+NEVER imply insider info or speculation framed as fact. No "sources close to" / "doctors don't want you to know" framed as confirmed truth (framing as commentary is fine).
+
+NO EM/EN DASHES anywhere in output. Use periods, commas, or colons. Em dashes (—) and en dashes (–) are AI-tells that get filtered. This applies to every text field.
+
+SELF-CHECK BEFORE RETURNING:
+1. Did I fabricate a specific number, percentage, or dollar amount?
+2. Did I attribute a claim to a specific named source/outlet/person?
+3. Did I give declarative advice instead of describing what's happening?
+4. Did I use any em dash or en dash?
+5. (Pointless only) Did I use any banned betting phrase: bet, betting, odds, the line, the spread, sharps, wager?
+If any answer is yes → silently rewrite before returning.
+
+════════════════════════════════════════════════
+STEP 4 — WRITE THE OUTPUT
+════════════════════════════════════════════════
+
+IF FORMAT IS "single_news_slide":
+  Generate a single news-style slide with a badge + headline + 1-2 highlighted accent words + italic explainer.
+  IF INCLUDE_CONTEXT_SLIDE is true, also generate a 2nd context slide with 3-4 bullet points.
+
+  Return JSON shape:
+  {
+    "format_type": "single_news_slide",
+    "badge": "Short eyebrow label, max 10 chars, ALL CAPS. SugarPause options: BREAKING, STUDY, ALERT, TRUTH, EXPOSED, REAL TALK. Pointless options: BREAKING, MARKETS, ALERT, MOVING, HOT TAKE, MISPRICED, CONTRARIAN, SHARP. Pick the badge whose energy matches the headline.",
+    "headline": "The main headline. 6-14 words. Will be rendered in ALL CAPS. Apply the brand voice. SugarPause must reference hormone/menopause/sugar/metabolic terms. Pointless must reference markets/traders/prediction markets.",
+    "highlights": ["1-2 substrings from the headline to highlight in accent color"],
+    "explainer": "ONE sentence, italic, supporting the headline. 15-25 words. Plain, no fluff, no fake stats.",
+    "image_query": "Specific image search for a strong background photo. SugarPause: menopausal woman drinking water, glucose monitor closeup, sugar pile dramatic lighting. Pointless: wall street trading floor, stadium aerial, capitol building dramatic.",
+    "context_slide": {
+      "intro": "ONE bridge sentence, 8-12 words.",
+      "bullets": [
+        { "label": "2-3 WORD ALL-CAPS LABEL", "text": "12-20 word punchy sentence." }
+      ],
+      "footer": "ONE closing line, 5-10 words."
+    }
+  }
+
+  Include context_slide ONLY when INCLUDE_CONTEXT_SLIDE is true.
+
+  Example bullet labels:
+  - SugarPause: THE STUDY, THE FINDING, THE CATCH, WHAT TO DO, THE LIE, THE TRUTH
+  - Pointless: THE SETUP, THE SIGNAL, THE EDGE, WHAT MOVED IT, THE SPREAD, WHY IT MATTERS
+
+IF FORMAT IS "carousel":
+  Generate a multi-slide deck. Slide count is SLIDE_COUNT (${count}).
+
+  Structure by slide count:
+  - 6 slides: Hook → Chunk1 → Chunk2 → Chunk3 → Data/Chart → CTA
+  - 5 slides: Hook → Chunk1 → Chunk2 → Data/Chart → CTA  (chunk3 = "")
+  - 4 slides: Hook → Chunk1 → Data/Chart → CTA  (chunk2 = chunk3 = "")
+  - 3 slides: Hook → Data/Chart → CTA  (all chunks = "")
+
+  Chunk density rules:
+  - 6 slides: chunk1 = 2-3 sentences (~120-180 chars), chunk2 = 2-3 sentences (~140-200 chars), chunk3 = 1-2 sentences (~80-150 chars). Each chunk ADVANCES the argument.
+  - 5 slides: chunk1 + chunk2 each carry more weight (~140-200 chars each). chunk3 = "".
+  - 4 slides: chunk1 is 3-5 sentences (~200-280 chars), packs the full narrative. chunk2 = chunk3 = "".
+  - 3 slides: no chunks at all. Headline carries maximum punch. dataTakeaway expands to 1-2 sentences absorbing the supporting context.
+
+  Return JSON shape:
+  {
+    "format_type": "carousel",
+    "category": "Single ALL CAPS label shown in the trending pill on slide 1. SugarPause options: PERIMENOPAUSE, MENOPAUSE, GLUCOSE, HORMONES, METABOLIC, TRENDING. Pointless options: NBA, NFL, MLB, NHL, UFC, SOCCER, TENNIS, GOLF, NCAAF, NCAAB, ELECTIONS, TRENDING.",
+    "headline": "ALL CAPS dramatic hook. 5-12 words, ~40-90 chars. Apply brand voice + angle.",
+    "chunk1": "Per chunk density rules. Empty string if not used.",
+    "chunk2": "Per chunk density rules. Empty string if not used.",
+    "chunk3": "Per chunk density rules. Empty string if not used.",
+    "dataQuestion": "The headline question on the data/chart slide.",
+    "dataLabel": "The specific option being tracked on the chart.",
+    "dataTakeaway": "Punchy summary sentence under the chart. Reference a percentage with %%% as placeholder.",
+    "captionA": "Caption variant A. Lowercase, casual, dramatic. First line is the claim. Then 1 sentence of evidence. Then 3-5 hashtags on a new line. Under 150 chars before hashtags. NO emojis (or one max).",
+    "captionB": "Caption variant B cliffhanger. Lowercase. 3-5 hashtags on new line. Under 150 chars before hashtags.",
+    "captionC": "Caption variant C implicit debate. 3-5 hashtags on new line. Under 150 chars before hashtags.",
+    "tweetBody": "Standalone tweet for video overlay. 2-3 sentences, max ~250 chars.",
+    "image_query": "Optional background image search for hook slide."
+  }
+
+════════════════════════════════════════════════
+HARD RULES (apply to all output, both brands, both formats)
+════════════════════════════════════════════════
+
+- ALWAYS pick the angle (news vs contrarian) before writing anything.
+- The output must ADVANCE THE ARGUMENT. Every field reinforces the angle.
+- DO NOT fabricate percentages, market prices, study stats, or dollar amounts.
+- DO NOT attribute claims to specific named sources/outlets/people.
+- DO NOT use em dashes or en dashes anywhere.
+- DO NOT use Pointless-banned betting phrases when brand is pointless.
+- DO NOT give declarative advice.
+- DO use brand-appropriate vocabulary, hashtags, and visual cues.
+- Every output must reference SPECIFIC details from the input. Never generic.
+- Set unused chunks to "" when slide count does not include them. Do NOT shorten or repeat.
+- Run the self-check before returning.
+- Return ONLY the JSON, nothing else. No preamble.
+- If the input is too thin, STILL return valid JSON with editable placeholders. Never refuse with prose.`;
+}
+
+function buildCarouselDeckFromParsed(parsed, topic) {
+  if (parsed.hook && Array.isArray(parsed.items) && !parsed.format_type) {
+    const deck = [];
+    deck.push({ type: 'hook', title: parsed.hook, body: '', image: null });
+    parsed.items.forEach(item => {
+      deck.push({
+        type: 'item',
+        title: item.name,
+        body: item.caption,
+        image: null,
+        imageQuery: item.image_query || item.name,
+        imageOptions: null
+      });
+    });
+    deck.push({ type: 'cta', title: '', body: '', image: null });
+    deck._format = parsed.format || 'list';
+    return deck;
+  }
+
+  const deck = [];
+  const headline = parsed.headline || '';
+  const category = parsed.category || '';
+  const imageQuery = parsed.image_query || topic;
+
+  deck.push({
+    type: 'hook',
+    title: headline,
+    body: category,
+    image: null
+  });
+
+  const chunkDefs = [
+    ['chunk1', 'Part 1'],
+    ['chunk2', 'Part 2'],
+    ['chunk3', 'Part 3']
+  ];
+  chunkDefs.forEach(([key, fallbackTitle]) => {
+    const text = String(parsed[key] || '').trim();
+    if (text) {
+      deck.push({
+        type: 'item',
+        title: category || fallbackTitle,
+        body: text,
+        image: null,
+        imageQuery,
+        imageOptions: null
+      });
+    }
+  });
+
+  const dataQ = String(parsed.dataQuestion || '').trim();
+  const dataLabel = String(parsed.dataLabel || '').trim();
+  const dataTakeaway = String(parsed.dataTakeaway || '').trim();
+  if (dataQ || dataLabel || dataTakeaway) {
+    const bodyParts = [];
+    if (dataLabel) bodyParts.push(dataLabel);
+    if (dataTakeaway) bodyParts.push(dataTakeaway);
+    deck.push({
+      type: 'item',
+      title: dataQ || 'The data',
+      body: bodyParts.join('\n\n'),
+      image: null,
+      imageQuery: imageQuery || 'chart statistics infographic',
+      imageOptions: null,
+      isDataSlide: true
+    });
+  }
+
+  deck.push({ type: 'cta', title: '', body: '', image: null });
+  deck._format = 'carousel';
+  deck._angle = parsed.angle;
+  deck._captions = {
+    captionA: parsed.captionA || '',
+    captionB: parsed.captionB || '',
+    captionC: parsed.captionC || ''
+  };
+  deck._tweetBody = parsed.tweetBody || '';
+  return deck;
 }
 
 function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
@@ -1009,151 +1138,20 @@ function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
   return result;
 }
 
-function buildNewsPrompt(topic, wantContextSlide) {
-  const sharedGuardrails = `
-════════════════════════════════════════════════════════
-⚠️ CRITICAL FACTUAL GUARDRAILS — READ BEFORE WRITING
-════════════════════════════════════════════════════════
-
-This brand has real users. Misinformation = lawsuits, broken trust, lost followers. You MUST stay in the defensible zone.
-
-🚫 NEVER USE these phrases (they imply specific cited studies that don't exist):
-- "Researchers confirm…"
-- "New study finds…"
-- "Scientists prove…"
-- "Doctors warn…" (unless we have a named source)
-- "Study reveals…"
-- "Research shows…" (when no specific research is cited)
-
-🚫 NEVER USE ranked superlatives unless they're well-established consensus facts:
-- "#1 cause of X"
-- "The main driver of X"
-- "The leading reason for X"
-- "Number one trigger"
-These almost always overstate the evidence. For menopause + sugar, the #1 driver of weight gain is **declining estrogen causing insulin resistance** — sugar is an amplifier, not the root cause.
-
-🚫 NEVER fabricate specific statistics ("destroys 73% of estrogen", "10x your risk") unless they reflect real well-documented findings.
-
-✅ USE this language instead (defensible by general medical consensus):
-- "fuels", "drives", "amplifies", "worsens"
-- "linked to", "tied to", "contributes to"
-- "a major factor in", "one of the biggest drivers"
-- "makes [symptom] harder", "stalls [outcome]"
-- "your hormones can't fight"
-
-✅ DEFENSIBLE FACTS you can lean on:
-- Declining estrogen during menopause causes insulin resistance
-- Sugar spikes blood glucose, which worsens insulin resistance
-- Insulin resistance promotes belly fat storage and inhibits fat loss
-- Blood sugar swings can trigger or worsen hot flashes
-- Inflammation from sugar can worsen menopause symptoms (mood, sleep, joints)
-- Liquid sugar (sodas, lattes) hits the bloodstream faster than solid foods
-- Many "healthy" foods (yogurt, granola, juice) have hidden added sugar
-- Cortisol from blood sugar crashes disrupts sleep and weight regulation
-
-🧠 SELF-CHECK BEFORE RETURNING (for headline AND every context bullet):
-1. Could a doctor or journalist defensibly support this exact claim?
-2. Am I implying a specific study that I haven't actually cited?
-3. Am I using a #1/the/only superlative that overstates the evidence?
-If any answer is "yes" → rewrite.
-════════════════════════════════════════════════════════`;
-
-  const slide1Voice = `
-VOICE & STYLE FOR SLIDE 1:
-- Headline must be PUNCHY but FACTUALLY DEFENSIBLE.
-- Include "menopause" or a menopause-specific term (hot flashes, brain fog, hormones, perimenopause, belly fat, insulin) so the algorithm targets the right women.
-- The enemy is Big Food / misleading marketing / hidden sugar — never the woman watching.
-- NO em dashes. NO misleading clickbait.
-- Explainer = 1 sentence, plain factual tone, like a news ticker, NO opinions or jokes.
-
-EXAMPLES — defensible vs. NOT:
-
-❌ "SUGAR IS THE #1 DRIVER OF MENOPAUSE WEIGHT GAIN, RESEARCHERS CONFIRM"
-  (overstates — implies fake study and a false #1 claim)
-
-✅ "SUGAR FUELS THE BELLY FAT MENOPAUSE WON'T LET YOU LOSE"
-  (mechanism language, no fake citation, defensible)
-
-✅ "WHY YOUR MORNING LATTE IS WORSENING MENOPAUSE BELLY FAT"
-  (no superlative, no fake study, mechanism-focused)
-
-❌ "NEW STUDY: 73% OF MENOPAUSE WEIGHT GAIN CAUSED BY SUGAR"
-  (fabricated stat + fake study)
-
-✅ "MENOPAUSE INSULIN RESISTANCE MAKES SUGAR HIT YOU HARDER"
-  (real mechanism, defensible)
-
-✅ "THE SUGAR HABIT KEEPING MENOPAUSE SYMPTOMS LOUD"
-  (descriptive, no false specificity)
-
-════════════════════════════════════════════════════════
-
-CHOOSE THE HIGHLIGHTS:
-Identify 1-2 SHOCKING WORDS or NUMBERS in the headline to highlight in coral. Pick attention-grabbing parts:
-- A specific named target ("STARBUCKS", "GRANOLA", "MORNING LATTE")
-- A vivid mechanism word ("FUELS", "AMPLIFIES", "HIJACKS", "WORSENS")
-- A specific menopause symptom ("BELLY FAT", "HOT FLASHES", "BRAIN FOG")
-Avoid highlighting fabricated stats.
-
-Return them as exact substrings that appear in the headline.`;
-
-  const slide2Instructions = wantContextSlide ? `
-
-════════════════════════════════════════════════════════
-SLIDE 2 — CONTEXT (REQUIRED: user enabled "Add context slide")
-════════════════════════════════════════════════════════
-
-You MUST include a "context_slide" object in the JSON. The editor uses the same layout as slide 1, but the user can choose a different background photo for slide 2.
-
-Slide 2 content:
-- "intro": ONE short sentence (8-12 words). Italic tone. Bridges from the headline and sets up the bullets. No em dashes.
-- "bullets": EXACTLY 3 or 4 objects. Each:
-  - "label": 2-3 words, will be shown ALL CAPS in coral (e.g. "THE MECHANISM", "WHY IT HITS HARDER", "THE FIX").
-  - "text": ONE punchy sentence, 12-20 words, defensible mechanism language — apply the SAME factual guardrails as slide 1. No fabricated stats, no banned study phrases, no "#1 / main driver" superlatives.
-- "footer": ONE closing line, 5-10 words, prompts action or curiosity (e.g. "The good news: it reverses fast." or "Cutting sugar changes this in 2 weeks.").
-
-Slide 2 must continue slide 1's topic with deeper context, same defensible tone.` : '';
-
-  const jsonSlide1 = `{
-  "badge": "Short eyebrow label, max 10 chars, all caps. PREFERRED (high-energy, defensible): BREAKING, WARNING, EXPOSED, ALERT, HIDDEN, HEALTH, WATCH OUT, REAL TALK. ❌ BANNED: 'NEW STUDY', 'STUDY', 'RESEARCH', 'REPORT' — these imply specific cited studies we don't have. Pick the badge whose energy matches the headline best.",
-  "headline": "The main headline. 6-14 words. Will be rendered in all caps. Must include menopause reference. Must pass the self-check above.",
-  "highlights": ["word or phrase to highlight", "second highlight (optional)"],
-  "explainer": "ONE sentence, italicized news-ticker style, supporting the headline with a defensible mechanism detail. No fluff, no fake stats. 15-25 words.",
-  "image_query": "specific google image search for a strong background photo (e.g. 'sugar pile spilled out', 'menopausal woman tired kitchen', 'donuts pastries display'). Stock-photo style."`;
-
-  const jsonContext = wantContextSlide ? `,
-  "context_slide": {
-    "intro": "8-12 words. Bridges headline to bullets.",
-    "bullets": [
-      { "label": "TWO WORD LABEL", "text": "12-20 word defensible sentence." }
-    ],
-    "footer": "5-10 words. Action or curiosity."
-  }` : '';
-
-  return `You are writing ${wantContextSlide ? 'TWO' : 'a SINGLE'} news-style Instagram/TikTok slide(s) for SugarPause — an app helping women in menopause quit sugar.
-
-TOPIC: "${topic}"
-
-The first slide imitates viral news-roundup posts: an eyebrow badge, a bold headline with 1-2 shocking words highlighted in coral, and an italic explainer underneath.
-${wantContextSlide ? 'The second slide continues the story: a "STORY CONTINUES" eyebrow (fixed label in the design), intro line, 3-4 labeled bullets with supporting facts, and a short footer — same full-bleed dark layout as slide 1; the user picks the background image separately for each slide.' : ''}
-${sharedGuardrails}
-${slide1Voice}
-${slide2Instructions}
-
-════════════════════════════════════════════════════════
-
-Return ONLY a JSON object matching this exact shape. No commentary, no markdown:
-${jsonSlide1}${jsonContext}
-}`;
-}
-
-async function generateOneCarousel(topic, count) {
-  const itemCount = count ?? (parseInt(document.getElementById('slideCount').value, 10) || 5);
-  const prompt = buildCarouselPrompt(topic, itemCount);
+async function generateOneCarousel(topic, slideCount) {
+  const count = clampSlideCount(slideCount ?? document.getElementById('slideCount').value);
+  const brand = getActiveBrand();
+  const prompt = buildGenerationPrompt({
+    brand,
+    format: 'carousel',
+    slideCount: count,
+    includeContextSlide: false,
+    topic
+  });
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, maxTokens: 2000 })
+    body: JSON.stringify({ prompt, maxTokens: count >= 6 ? 2800 : 2200 })
   });
   if (!res.ok) {
     const err = await res.text();
@@ -1161,30 +1159,23 @@ async function generateOneCarousel(topic, count) {
   }
   const { text: rawText } = await res.json();
   const parsed = extractJsonFromResponse(rawText);
-  const deck = [];
-  deck.push({ type: 'hook', title: parsed.hook, body: '', image: null });
-  (parsed.items || []).forEach(item => {
-    deck.push({
-      type: 'item',
-      title: item.name,
-      body: item.caption,
-      image: null,
-      imageQuery: item.image_query || item.name,
-      imageOptions: null
-    });
-  });
-  deck.push({ type: 'cta', title: '', body: '', image: null });
-  deck._format = parsed.format;
-  return deck;
+  return buildCarouselDeckFromParsed(parsed, topic);
 }
 
 async function generateOneNewsSlide(topic, options = {}) {
   const wantContextSlide = options.wantContextSlide ?? !!(document.getElementById('newsContextSlideToggle')?.checked);
-  const prompt = buildNewsPrompt(topic, wantContextSlide);
+  const brand = getActiveBrand();
+  const prompt = buildGenerationPrompt({
+    brand,
+    format: 'single_news_slide',
+    slideCount: 6,
+    includeContextSlide: wantContextSlide,
+    topic
+  });
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1000 })
+    body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1200 })
   });
   if (!res.ok) {
     const err = await res.text();
@@ -1263,7 +1254,7 @@ async function batchGenerate() {
 
   const genBtn = document.getElementById('generateBtn');
   const batchBtn = document.getElementById('batchBtn');
-  const slideCount = parseInt(document.getElementById('slideCount').value, 10) || 5;
+  const slideCount = clampSlideCount(document.getElementById('slideCount').value);
   const wantContext = !!(document.getElementById('newsContextSlideToggle')?.checked);
 
   genBtn.disabled = true;
@@ -1354,7 +1345,7 @@ async function batchGenerate() {
 async function generateContent() {
   console.log('[generateContent] called. contentType =', contentType);
   const topic = document.getElementById('topic').value.trim();
-  const count = parseInt(document.getElementById('slideCount').value, 10) || 5;
+  const count = clampSlideCount(document.getElementById('slideCount').value);
 
   if (!topic) { showStatus('Enter a topic first.', 'error'); return; }
 
@@ -1373,13 +1364,15 @@ async function generateContent() {
   try {
     const deck = await generateOneCarousel(topic, count);
     slides = deck;
+    if (deck._captions) slides.captions = { ...deck._captions };
+    if (deck._tweetBody) slides.tweetBody = deck._tweetBody;
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
-    const formatLabel = deck._format === 'narrative' ? '📖 Narrative story arc' :
-                        deck._format === 'list' ? '📋 List/roundup' :
-                        'Generated';
-    showStatus(`${formatLabel}. Add images and tweak text as needed.`, 'success');
+    const formatLabel = deck._format === 'list' ? '📋 List/roundup' :
+                        deck._format === 'narrative' ? '📖 Narrative story arc' :
+                        `📊 Carousel deck (${count} slides)`;
+    showStatus(`${formatLabel}. Add images, captions below, and tweak text as needed.`, 'success');
   } catch (e) {
     console.error(e);
     showStatus('Error: ' + e.message, 'error');
@@ -1646,9 +1639,18 @@ function renderEditors() {
         <label>Footer</label>
         <input type="text" data-i="${i}" data-field="footer" value="${escapeHtml(slide.footer || '')}" />
       </div>`;
+    } else if (slide.type === 'hook') {
+      html += `<div class="field">
+        <label>Headline (renders in all caps)</label>
+        <textarea data-i="${i}" data-field="title" rows="2">${escapeHtml(slide.title || '')}</textarea>
+      </div>`;
+      html += `<div class="field">
+        <label>Category pill (trending label)</label>
+        <input type="text" data-i="${i}" data-field="body" value="${escapeHtml(slide.body || '')}" placeholder="e.g. MENOPAUSE, GLUCOSE" />
+      </div>`;
     } else {
       html += `<div class="field">
-        <label>Title / Hook</label>
+        <label>Title</label>
         <textarea data-i="${i}" data-field="title">${escapeHtml(slide.title || '')}</textarea>
       </div>`;
     }
@@ -1691,10 +1693,38 @@ function renderEditors() {
     container.appendChild(div);
   });
 
+  const caps = slides.captions || slides._captions;
+  if (caps || slides.tweetBody || slides._tweetBody) {
+    const capDiv = document.createElement('div');
+    capDiv.className = 'slide-editor';
+    const c = caps || {};
+    const tweet = slides.tweetBody || slides._tweetBody || '';
+    capDiv.innerHTML = `<h3>Social captions (copy for post)</h3>
+      <div class="field"><label>Caption A — hot take</label>
+        <textarea data-caption="captionA" rows="3">${escapeHtml(c.captionA || '')}</textarea></div>
+      <div class="field"><label>Caption B — cliffhanger</label>
+        <textarea data-caption="captionB" rows="3">${escapeHtml(c.captionB || '')}</textarea></div>
+      <div class="field"><label>Caption C — debate</label>
+        <textarea data-caption="captionC" rows="3">${escapeHtml(c.captionC || '')}</textarea></div>
+      <div class="field"><label>Tweet / overlay text</label>
+        <textarea data-caption="tweetBody" rows="2">${escapeHtml(tweet)}</textarea></div>`;
+    container.appendChild(capDiv);
+  }
+
   // Wire up text changes (textareas + text inputs)
   function handleFieldChange(e) {
     const i = parseInt(e.target.dataset.i);
     const f = e.target.dataset.field;
+    if (e.target.dataset.caption) {
+      const cf = e.target.dataset.caption;
+      if (cf === 'tweetBody') {
+        slides.tweetBody = e.target.value;
+      } else {
+        if (!slides.captions) slides.captions = {};
+        slides.captions[cf] = e.target.value;
+      }
+      return;
+    }
     if (!f || isNaN(i)) return;
     if (f === 'highlights-csv') {
       // Split comma-separated into trimmed array
@@ -1716,6 +1746,9 @@ function renderEditors() {
   container.querySelectorAll('textarea').forEach(t => {
     t.addEventListener('input', handleFieldChange);
     t.addEventListener('blur', renderAll);
+  });
+  container.querySelectorAll('textarea[data-caption]').forEach(t => {
+    t.addEventListener('input', handleFieldChange);
   });
   container.querySelectorAll('input[type="text"][data-field]').forEach(t => {
     t.addEventListener('input', handleFieldChange);
