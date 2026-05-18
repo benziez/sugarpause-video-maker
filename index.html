@@ -1445,6 +1445,30 @@ function clampSlideCount(n) {
 function buildGenerationPrompt({ brand, format, slideCount, includeContextSlide, topic }) {
   const count = clampSlideCount(slideCount);
   const ctx = includeContextSlide ? 'true' : 'false';
+  const pointlessDeckRules = brand === 'pointless' ? `
+════════════════════════════════════════════════
+POINTLESS — TWO-ACT STRUCTURE (MANDATORY)
+════════════════════════════════════════════════
+
+Pointless decks are a NEWS post first, then a market payoff. Slides 1-2 (news + context in single_news_slide, OR hook + story chunks in carousel) must read like a viral BREAKING NEWS carousel: ESPN/Bleacher Report/TMZ energy. Report the story from TOPIC literally.
+
+ACT 1 (news fields only: badge, headline, highlights, explainer, context_slide OR carousel headline + chunk1-3):
+- Write as if the user posted a news headline, NOT a trading newsletter.
+- Good headline for topic "LeBron James will retire soon": "LEBRON JAMES COULD RETIRE AFTER THIS SEASON" or "LEBRON JAMES RETIREMENT TALK IS HEATING UP"
+- BAD (never write these on ACT 1): "THE MARKET IS PRICING LEBRON OUT", "TRADERS ARE BETTING ON RETIREMENT", "IMPLIED PROBABILITY IS CLIMBING"
+- ACT 1 BANNED WORDS: market, markets, trader, traders, trading, pricing, priced, contract, contracts, implied, probability, volume, flow, positioning, mispriced, Kalshi, Polymarket, odds, spread, wager, bet, betting, sharps, and all compliance-banned betting phrases.
+- ACT 1 voice: what happened, who is involved, why fans care, timeline, legacy, league impact, rumors/reports. Sports/news vocabulary only.
+- Context slide intro/bullets/footer: explain the STORY (facts, stakes, timeline). Labels like THE STORY, WHAT HAPPENED, WHY IT MATTERS, WHAT'S NEXT. Never "what the market is telling us".
+- Badges for ACT 1: BREAKING, ALERT, DEVELOPING, EXCLUSIVE, REPORT, JUST IN. Avoid MARKETS, MISPRICED, CONTRARIAN, SHARP on slide 1.
+- image_query for ACT 1: athlete, stadium, press conference, team photo. Never trading floor or stock charts.
+
+ACT 2 (dataQuestion, dataLabel, dataTakeaway on chart slide + fixed CTA slide):
+- This is the ONLY place for prediction-market framing: what Kalshi/traders are pricing, implied probability, positioning, etc.
+- dataQuestion should be a clear yes/no market question tied to the topic.
+- Still follow compliance: no banned betting phrases; use "markets are pricing", "traders are positioning", etc.
+
+SELF-CHECK (Pointless): Do headline and context_slide contain ANY banned ACT 1 word? If yes, rewrite ACT 1 as pure news before returning.
+` : '';
 
   return `You write social media slideshow copy for two different brands. The current brand and output format are passed in via variables:
 
@@ -1468,16 +1492,16 @@ IF BRAND IS "sugarpause":
   AVOID: medical advice in declarative form ("take this supplement"), specific drug recommendations, diagnosis language, body-shaming, fearmongering about specific brands by name.
 
 IF BRAND IS "pointless":
-  Audience: traders, sports bettors, market nerds, prediction market followers (Kalshi, Polymarket).
-  Voice: dramatic, specific, consequence-driven. Like a sports documentary or sharp analyst calling out what the crowd is missing.
-  Vocabulary: markets, traders, implied probability, volume, flow, mispricing, contracts, positioning, the chart, the signal.
-  Hooks lean: stakes / consequence / "what the market is seeing" / contrarian takes
-  Vibe: dark navy / purple. Confident, observational, never preachy.
-  Hashtags: #kalshi #predictionmarkets #pointless + topical
-  BANNED phrases (compliance hard rule): "bet", "betting", "odds", "the line", "the spread", "sharps", "sharp money", "money moving", "wager"
-  Use defensible language instead: "markets are pricing", "traders are positioning", "implied probability shifted", "volume spiked", "the spread widened", "the contract is moving"
-  AVOID: fabricated percentages (use directional language), fake source attributions ("according to Bloomberg"), declarative financial advice ("buy this contract").
-
+  Audience: sports fans and news scrollers first; prediction market curious second (payoff on chart slide).
+  Overall arc: viral breaking news hook → story context → chart/market reveal → follow CTA.
+  ACT 1 voice (slides 1-2 / hook + chunks): breaking news, dramatic, specific, fan-facing. Like a push alert or IG news post.
+  ACT 2 voice (chart fields only): sharp market observer. Prediction markets, implied probability, positioning (compliance-safe phrasing).
+  Vibe: dark navy / purple. Confident, never preachy.
+  Hashtags: #kalshi #predictionmarkets #pointless + topical (captions only; not in slide 1 headline).
+  BANNED phrases (compliance, ACT 2 and captions): "bet", "betting", "odds", "the line", "the spread", "sharps", "sharp money", "money moving", "wager"
+  ACT 2 defensible language: "markets are pricing", "traders are positioning", "implied probability shifted", "volume spiked"
+  AVOID: fabricated percentages, fake attributions ("according to Bloomberg"), declarative financial advice ("buy this contract").
+${pointlessDeckRules}
 ════════════════════════════════════════════════
 STEP 2 — PICK THE ANGLE (do this internally)
 ════════════════════════════════════════════════
@@ -1486,11 +1510,11 @@ Choose ONE of two angles based on the topic:
 
 A) NEWS BREAK — the topic is a real event, study, ruling, or market-moving development. Voice: anchor reporting what just happened + what it means.
    - SugarPause example: "New study links seed oils to perimenopause weight gain"
-   - Pointless example: "Wemby dropped 12 blocks in Game 1"
+   - Pointless example: "LeBron James could retire after this season"
 
 B) CONTRARIAN TAKE — the topic is opinion, a hot take, or a "the crowd is wrong" angle. Voice: sharp call-out of what people are missing.
    - SugarPause example: "Stop counting calories after 40. Track these 3 things instead."
-   - Pointless example: "The Rockets are not a playoff team. They never were."
+   - Pointless example: "LeBron should have retired two years ago" (still news/hot-take tone on ACT 1, never trader-speak)
 
 The angle is internal. Do NOT return it as a field. USE it to shape every other field.
 
@@ -1527,11 +1551,11 @@ IF FORMAT IS "single_news_slide":
   Return JSON shape:
   {
     "format_type": "single_news_slide",
-    "badge": "Short eyebrow label, max 10 chars, ALL CAPS. SugarPause options: BREAKING, STUDY, ALERT, TRUTH, EXPOSED, REAL TALK. Pointless options: BREAKING, MARKETS, ALERT, MOVING, HOT TAKE, MISPRICED, CONTRARIAN, SHARP. Pick the badge whose energy matches the headline.",
-    "headline": "The main headline. 6-14 words. Will be rendered in ALL CAPS. Apply the brand voice. SugarPause must reference hormone/menopause/sugar/metabolic terms. Pointless must reference markets/traders/prediction markets.",
+    "badge": "Short eyebrow label, max 10 chars, ALL CAPS. SugarPause options: BREAKING, STUDY, ALERT, TRUTH, EXPOSED, REAL TALK. Pointless ACT 1 options: BREAKING, ALERT, DEVELOPING, EXCLUSIVE, REPORT, JUST IN (news badges only, not market badges).",
+    "headline": "The main headline. 6-14 words. Will be rendered in ALL CAPS. SugarPause must reference hormone/menopause/sugar/metabolic terms. Pointless ACT 1: pure breaking news about the topic (player, team, event). Zero market/trader language.",
     "highlights": ["1-2 substrings from the headline to highlight in accent color"],
-    "explainer": "ONE sentence, italic, supporting the headline. 15-25 words. Plain, no fluff, no fake stats.",
-    "image_query": "Specific image search for a strong background photo. SugarPause: menopausal woman drinking water, glucose monitor closeup, sugar pile dramatic lighting. Pointless: wall street trading floor, stadium aerial, capitol building dramatic.",
+    "explainer": "ONE sentence, italic, supporting the headline. 15-25 words. Plain, no fluff, no fake stats. Pointless ACT 1: news context only (career, timeline, stakes). No traders or markets.",
+    "image_query": "Specific image search for a strong background photo. SugarPause: menopausal woman drinking water, glucose monitor closeup, sugar pile dramatic lighting. Pointless ACT 1: athlete action shot, stadium crowd, press conference, team logo moment. Never trading floor or charts.",
     "context_slide": {
       "intro": "ONE bridge sentence, 8-12 words.",
       "bullets": [
@@ -1550,7 +1574,7 @@ IF FORMAT IS "single_news_slide":
 
   Example bullet labels:
   - SugarPause: THE STUDY, THE FINDING, THE CATCH, WHAT TO DO, THE LIE, THE TRUTH
-  - Pointless: THE SETUP, THE SIGNAL, THE EDGE, WHAT MOVED IT, THE SPREAD, WHY IT MATTERS
+  - Pointless ACT 1: THE STORY, WHAT HAPPENED, WHY IT MATTERS, WHAT'S NEXT, THE TIMELINE, THE STAKES (never THE SIGNAL, THE EDGE, WHAT MOVED IT)
 
 IF FORMAT IS "carousel":
   Generate a multi-slide deck. Slide count is SLIDE_COUNT (${count}).
@@ -1571,8 +1595,8 @@ IF FORMAT IS "carousel":
   {
     "format_type": "carousel",
     "category": "Single ALL CAPS label shown in the trending pill on slide 1. SugarPause options: PERIMENOPAUSE, MENOPAUSE, GLUCOSE, HORMONES, METABOLIC, TRENDING. Pointless options: NBA, NFL, MLB, NHL, UFC, SOCCER, TENNIS, GOLF, NCAAF, NCAAB, ELECTIONS, TRENDING.",
-    "headline": "ALL CAPS dramatic hook. 5-12 words, ~40-90 chars. Apply brand voice + angle.",
-    "chunk1": "Per chunk density rules. Empty string if not used.",
+    "headline": "ALL CAPS dramatic hook. 5-12 words, ~40-90 chars. Pointless: breaking news headline about the topic (ACT 1, no market/trader words).",
+    "chunk1": "Per chunk density rules. Pointless: news story beats only (ACT 1). Empty string if not used.",
     "chunk2": "Per chunk density rules. Empty string if not used.",
     "chunk3": "Per chunk density rules. Empty string if not used.",
     "dataQuestion": "The headline question on the data/chart slide.",
