@@ -636,6 +636,77 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   }
   .batch-progress-bar[hidden] { display: none; }
+
+  .topic-queue-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .topic-queue-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .topic-queue-row input {
+    flex: 1;
+    min-width: 0;
+  }
+  .topic-queue-row button {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .topic-queue-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .post-group-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    margin-top: 8px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .post-group-header:first-child { margin-top: 0; }
+  .post-group-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.35;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .post-group-header button { width: auto; flex-shrink: 0; }
+  .editor-post-header {
+    grid-column: 1 / -1;
+    padding: 12px 0 4px;
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .editor-post-header:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .editor-post-header strong { font-size: 13px; }
 </style>
 </head>
 <body>
@@ -683,6 +754,11 @@
           <label>Topic / Angle</label>
           <input type="text" id="topic" placeholder="e.g. Starbucks drinks making menopause worse" />
           <p class="hint">Be specific. The more direct, the better the hook.</p>
+          <div id="topicQueueList" class="topic-queue-list"></div>
+          <div class="topic-queue-actions">
+            <button type="button" id="addTopicBtn" class="secondary small">+ Add topic</button>
+            <span class="hint" id="topicQueueHint" style="margin:0;">Up to 5 posts per run</span>
+          </div>
         </div>
 
         <div class="field" id="newsContextSlideField" style="display: none;">
@@ -719,7 +795,7 @@
           ✨ Generate Copy with AI
         </button>
 
-        <button type="button" id="batchBtn" class="secondary" style="margin-top: 10px;">📋 Batch Generate from List</button>
+        <button type="button" id="batchBtn" class="secondary" style="margin-top: 10px;">📋 Batch paste (modal)</button>
 
         <div id="status" style="margin-top: 12px;"></div>
       </div>
@@ -765,6 +841,8 @@ const SCREENSHOT_TIMELINE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAhwAA
 // STATE
 // ============================================================
 let slides = []; // { type: 'hook'|'item'|'cta', title, body, image (dataURL) }
+const MAX_TOPIC_QUEUE = 5;
+let batchPostGroups = []; // { topic, startIndex, count } — one group per generated post
 let activePasteTarget = null; // index of currently focused image drop zone
 
 const W = 1080, H = 1350;
@@ -1400,7 +1478,111 @@ setContentType(contentType);
 // GENERATION CORE (single + batch)
 // ============================================================
 
-let batchDownloadHint = null; // { firstTopic, topicCount } after batch
+let batchDownloadHint = null; // legacy hint for single-post download naming
+
+function getTopicQueueExtras() {
+  return [...document.querySelectorAll('.topic-queue-input')]
+    .map(el => el.value.trim())
+    .filter(Boolean);
+}
+
+function getAllTopics() {
+  const primary = document.getElementById('topic')?.value.trim() || '';
+  const extras = getTopicQueueExtras();
+  const all = primary ? [primary, ...extras] : extras;
+  return all.slice(0, MAX_TOPIC_QUEUE);
+}
+
+function saveTopicQueue() {
+  try {
+    localStorage.setItem('sugarpause_topic_queue', JSON.stringify(getTopicQueueExtras()));
+  } catch {}
+}
+
+function loadTopicQueue() {
+  let extras = [];
+  try {
+    extras = JSON.parse(localStorage.getItem('sugarpause_topic_queue') || '[]');
+    if (!Array.isArray(extras)) extras = [];
+  } catch {}
+  const list = document.getElementById('topicQueueList');
+  if (!list) return;
+  list.innerHTML = '';
+  extras.slice(0, MAX_TOPIC_QUEUE - 1).forEach(t => addTopicRow(t));
+  updateTopicQueueUI();
+}
+
+function addTopicRow(value = '') {
+  const list = document.getElementById('topicQueueList');
+  if (!list || getAllTopics().length >= MAX_TOPIC_QUEUE) return;
+
+  const row = document.createElement('div');
+  row.className = 'topic-queue-row';
+  row.innerHTML = `
+    <input type="text" class="topic-queue-input" placeholder="Another topic or angle" value="${escapeHtml(value)}" />
+    <button type="button" class="secondary" title="Remove">✕</button>
+  `;
+  const input = row.querySelector('input');
+  const removeBtn = row.querySelector('button');
+  input.addEventListener('input', () => {
+    saveTopicQueue();
+    updateTopicQueueUI();
+  });
+  removeBtn.addEventListener('click', () => {
+    row.remove();
+    saveTopicQueue();
+    updateTopicQueueUI();
+  });
+  list.appendChild(row);
+  saveTopicQueue();
+  updateTopicQueueUI();
+}
+
+function updateTopicQueueUI() {
+  const addBtn = document.getElementById('addTopicBtn');
+  const hint = document.getElementById('topicQueueHint');
+  const topics = getAllTopics();
+  const atMax = topics.length >= MAX_TOPIC_QUEUE;
+  if (addBtn) addBtn.disabled = atMax;
+  if (hint) {
+    hint.textContent = topics.length > 1
+      ? `${topics.length} posts will generate (separate ZIPs)`
+      : 'Up to 5 posts per run';
+  }
+  updateDownloadButtons();
+}
+
+function updateDownloadButtons() {
+  const dlBtn = document.querySelector('button[onclick="downloadAll()"]');
+  if (!dlBtn) return;
+  const n = batchPostGroups.length;
+  if (n > 1) {
+    dlBtn.textContent = `⬇️ Download ${n} ZIPs (one per post)`;
+  } else {
+    dlBtn.textContent = '⬇️ Download All';
+  }
+}
+
+function getPostGroupsForRender() {
+  if (batchPostGroups.length > 0) return batchPostGroups;
+  const topic = document.getElementById('topic')?.value.trim() || 'post';
+  if (!slides.length) return [];
+  return [{ topic, startIndex: 0, count: slides.length }];
+}
+
+function truncateTopicLabel(s, max = 48) {
+  const t = String(s || '').trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max - 1) + '…';
+}
+
+function initTopicQueue() {
+  const addBtn = document.getElementById('addTopicBtn');
+  const primary = document.getElementById('topic');
+  addBtn?.addEventListener('click', () => addTopicRow());
+  primary?.addEventListener('input', updateTopicQueueUI);
+  loadTopicQueue();
+}
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
@@ -1897,7 +2079,7 @@ function updateBatchTopicCount() {
   const countEl = document.getElementById('batchTopicCount');
   const btn = document.getElementById('batchGenerateAllBtn');
   if (!input || !countEl || !btn) return;
-  const topics = parseBatchTopics(input.value);
+  const topics = parseBatchTopics(input.value).slice(0, MAX_TOPIC_QUEUE);
   const n = topics.length;
   countEl.textContent = n === 1 ? '1 topic detected' : `${n} topics detected`;
   btn.textContent = `Generate All (${n})`;
@@ -1932,13 +2114,8 @@ function setBatchProgress(text, visible) {
   }
 }
 
-async function batchGenerate() {
-  const input = document.getElementById('batchTopicsInput');
-  const topics = parseBatchTopics(input?.value || '');
-  if (topics.length === 0) return;
-
-  localStorage.setItem('sugarpause_batch_input', input.value);
-  closeBatchModal();
+async function batchGenerateFromTopics(topics) {
+  if (!topics.length) return;
 
   const genBtn = document.getElementById('generateBtn');
   const batchBtn = document.getElementById('batchBtn');
@@ -1949,17 +2126,19 @@ async function batchGenerate() {
   if (batchBtn) batchBtn.disabled = true;
 
   slides = [];
-  batchDownloadHint = { firstTopic: topics[0], topicCount: topics.length };
+  batchPostGroups = [];
+  batchDownloadHint = topics.length > 1 ? { multi: true } : { firstTopic: topics[0], topicCount: 1 };
   document.getElementById('editorPanel').hidden = false;
 
   let succeeded = 0;
   let failed = 0;
+  let offset = 0;
 
   for (let i = 0; i < topics.length; i++) {
     const topic = topics[i];
     const slideWord = contentType === 'news'
-      ? (wantContext ? 'slides' : 'slide')
-      : 'deck';
+      ? (wantContext ? 'post' : 'post')
+      : 'post';
     setBatchProgress(`Generating ${slideWord} ${i + 1} of ${topics.length}: ${topic}`, true);
 
     try {
@@ -1969,7 +2148,10 @@ async function batchGenerate() {
       } else {
         deck = await generateOneCarousel(topic, slideCount);
       }
+      const count = deck.length;
+      batchPostGroups.push({ topic, startIndex: offset, count });
       slides.push(...deck);
+      offset += count;
       succeeded++;
       renderEditors();
       renderAll();
@@ -1985,13 +2167,24 @@ async function batchGenerate() {
   setBatchProgress('', false);
   genBtn.disabled = false;
   if (batchBtn) batchBtn.disabled = false;
+  updateDownloadButtons();
 
-  const totalSlides = slides.length;
+  const postWord = succeeded === 1 ? 'post' : 'posts';
   if (failed === 0) {
-    showStatus(`Generated ${succeeded} topics → ${totalSlides} total slides.`, 'success');
+    showStatus(`Generated ${succeeded} ${postWord}. Use “Download post” on each group, or “Download ${succeeded} ZIPs” for all.`, 'success');
   } else {
-    showStatus(`Generated ${succeeded} of ${topics.length} topics → ${totalSlides} total slides. ${failed} failed (see console).`, failed === topics.length ? 'error' : 'info');
+    showStatus(`Generated ${succeeded} of ${topics.length} ${postWord}. ${failed} failed.`, failed === topics.length ? 'error' : 'info');
   }
+}
+
+async function batchGenerate() {
+  const input = document.getElementById('batchTopicsInput');
+  const topics = parseBatchTopics(input?.value || '').slice(0, MAX_TOPIC_QUEUE);
+  if (topics.length === 0) return;
+
+  localStorage.setItem('sugarpause_batch_input', input.value);
+  closeBatchModal();
+  await batchGenerateFromTopics(topics);
 }
 
 (function initBatchGenerate() {
@@ -2027,21 +2220,37 @@ async function batchGenerate() {
   });
 })();
 
+initTopicQueue();
+
 // ============================================================
 // GENERATE COPY VIA CLAUDE (single)
 // ============================================================
 async function generateContent() {
   console.log('[generateContent] called. contentType =', contentType);
-  const topic = document.getElementById('topic').value.trim();
+  const topics = getAllTopics();
   const count = clampSlideCount(document.getElementById('slideCount').value);
 
-  if (!topic) { showStatus('Enter a topic first.', 'error'); return; }
+  if (topics.length === 0) { showStatus('Enter a topic first.', 'error'); return; }
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating...';
+
+  if (topics.length > 1) {
+    showStatus(`Generating ${topics.length} separate posts...`, 'info');
+    try {
+      await batchGenerateFromTopics(topics);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = contentType === 'news' ? '✨ Generate News Slide' : '✨ Generate Copy with AI';
+    }
+    return;
+  }
+
+  const topic = topics[0];
   showStatus('Calling Claude to write your copy...', 'info');
   batchDownloadHint = null;
+  batchPostGroups = [];
 
   if (contentType === 'news') {
     console.log('[generateContent] branching to generateNewsSlide');
@@ -2054,6 +2263,7 @@ async function generateContent() {
     slides = deck;
     if (deck._captions) slides.captions = { ...deck._captions };
     if (deck._tweetBody) slides.tweetBody = deck._tweetBody;
+    batchPostGroups = [{ topic, startIndex: 0, count: deck.length }];
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
@@ -2073,9 +2283,11 @@ async function generateContent() {
 async function generateNewsSlide(topic, btn) {
   const wantContextSlide = !!(document.getElementById('newsContextSlideToggle')?.checked);
   batchDownloadHint = null;
+  batchPostGroups = [];
 
   try {
     slides = await generateOneNewsSlide(topic, { wantContextSlide });
+    batchPostGroups = [{ topic, startIndex: 0, count: slides.length }];
     if (wantContextSlide && slides.length >= 2) {
       showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
     } else if (wantContextSlide) {
@@ -2276,7 +2488,21 @@ function renderEditors() {
   const container = document.getElementById('slideEditors');
   container.innerHTML = '';
 
+  const groups = getPostGroupsForRender();
+  const multi = groups.length > 1;
+
   slides.forEach((slide, i) => {
+    if (multi) {
+      const gi = groups.findIndex(g => i >= g.startIndex && i < g.startIndex + g.count);
+      if (gi >= 0 && i === groups[gi].startIndex) {
+        const hdr = document.createElement('div');
+        hdr.className = 'editor-post-header';
+        hdr.innerHTML = `<strong>Post ${gi + 1}: ${escapeHtml(truncateTopicLabel(groups[gi].topic, 56))}</strong>
+          <button type="button" class="small secondary" onclick="downloadPost(${gi})">⬇️ ZIP</button>`;
+        container.appendChild(hdr);
+      }
+    }
+
     const div = document.createElement('div');
     div.className = 'slide-editor';
 
@@ -2581,6 +2807,8 @@ function renderAll() {
   const grid = document.getElementById('previewGrid');
   grid.innerHTML = '';
 
+  if (!slides.length) return;
+
   // Ensure custom fonts are loaded before canvas rendering
   if (document.fonts && !document.fonts.check('400 100px "DM Serif Display"')) {
     document.fonts.load('400 100px "DM Serif Display"').then(() => renderAll());
@@ -2588,25 +2816,42 @@ function renderAll() {
     document.fonts.load('600 30px Inter');
   }
 
-  slides.forEach((slide, i) => {
-    const card = document.createElement('div');
-    card.className = 'preview-card';
+  const groups = getPostGroupsForRender();
+  const multi = groups.length > 1;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    canvas.id = `canvas-${i}`;
+  groups.forEach((group, gi) => {
+    if (multi) {
+      const header = document.createElement('div');
+      header.className = 'post-group-header';
+      header.innerHTML = `<h3>Post ${gi + 1}: ${escapeHtml(truncateTopicLabel(group.topic))}</h3>
+        <button type="button" class="small secondary" onclick="downloadPost(${gi})">⬇️ Download post (${group.count} slides)</button>`;
+      grid.appendChild(header);
+    }
 
-    const labelDiv = document.createElement('div');
-    labelDiv.className = 'label';
-    labelDiv.innerHTML = `<span>Slide ${i+1}</span>
-      <button class="small secondary" onclick="downloadOne(${i})">Download</button>`;
+    for (let i = group.startIndex; i < group.startIndex + group.count; i++) {
+      const slide = slides[i];
+      const localNum = i - group.startIndex + 1;
+      const card = document.createElement('div');
+      card.className = 'preview-card';
 
-    card.appendChild(canvas);
-    card.appendChild(labelDiv);
-    grid.appendChild(card);
+      const canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      canvas.id = `canvas-${i}`;
 
-    drawSlide(canvas, slide, i);
+      const labelDiv = document.createElement('div');
+      labelDiv.className = 'label';
+      labelDiv.innerHTML = `<span>Slide ${localNum}</span>
+        <button class="small secondary" onclick="downloadOne(${i})">PNG</button>`;
+
+      card.appendChild(canvas);
+      card.appendChild(labelDiv);
+      grid.appendChild(card);
+
+      drawSlide(canvas, slide, i);
+    }
   });
+
+  updateDownloadButtons();
 }
 
 function drawSlide(canvas, slide, idx) {
@@ -3602,10 +3847,52 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxBlockHeight, 
 // ============================================================
 function downloadOne(idx) {
   const canvas = document.getElementById(`canvas-${idx}`);
+  if (!canvas) return;
+  const groups = getPostGroupsForRender();
+  const gi = groups.findIndex(g => idx >= g.startIndex && idx < g.startIndex + g.count);
+  const localNum = gi >= 0 ? idx - groups[gi].startIndex + 1 : idx + 1;
+  const slug = gi >= 0 ? slugifyTopic(groups[gi].topic) : 'slide';
   const link = document.createElement('a');
-  link.download = `sugarpause-slide-${String(idx + 1).padStart(2, '0')}.png`;
+  link.download = `${slug || 'slide'}-${String(localNum).padStart(2, '0')}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
+}
+
+async function downloadPost(groupIndex, opts = {}) {
+  if (typeof JSZip === 'undefined') {
+    showStatus('ZIP library failed to load. Check your internet connection.', 'error');
+    return;
+  }
+
+  const g = batchPostGroups[groupIndex] || getPostGroupsForRender()[groupIndex];
+  if (!g || !g.count) return;
+
+  const topicSlug = slugifyTopic(g.topic) || `post-${groupIndex + 1}`;
+  const zip = new JSZip();
+  const folder = zip.folder(topicSlug);
+
+  for (let j = 0; j < g.count; j++) {
+    const idx = g.startIndex + j;
+    const canvas = document.getElementById(`canvas-${idx}`);
+    if (!canvas) continue;
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) continue;
+    folder.file(`slide-${String(j + 1).padStart(2, '0')}.png`, blob);
+  }
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${topicSlug}-slides.zip`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  if (!opts.quiet) {
+    showStatus(`Downloaded post ${groupIndex + 1} (${g.count} slides) as ${topicSlug}-slides.zip`, 'success');
+  }
 }
 
 async function downloadAll() {
@@ -3614,42 +3901,50 @@ async function downloadAll() {
     return;
   }
 
+  const groups = getPostGroupsForRender();
   const btn = document.querySelector('button[onclick="downloadAll()"]');
   const originalLabel = btn.innerHTML;
   btn.disabled = true;
+
+  if (groups.length > 1) {
+    btn.innerHTML = '<span class="spinner"></span>Downloading...';
+    try {
+      for (let gi = 0; gi < groups.length; gi++) {
+        btn.innerHTML = `<span class="spinner"></span>ZIP ${gi + 1}/${groups.length}...`;
+        await downloadPost(gi, { quiet: true });
+        if (gi < groups.length - 1) await delay(450);
+      }
+      showStatus(`Downloaded ${groups.length} separate ZIP files (one per post).`, 'success');
+    } catch (e) {
+      console.error(e);
+      showStatus('Error creating ZIP: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalLabel;
+    }
+    return;
+  }
+
   btn.innerHTML = '<span class="spinner"></span>Zipping...';
 
   try {
     const zip = new JSZip();
-    let topic;
-    if (batchDownloadHint && batchDownloadHint.topicCount > 1) {
-      const first = slugifyTopic(batchDownloadHint.firstTopic);
-      topic = first ? `${first}-and-more` : 'slides-batch';
-    } else if (batchDownloadHint && batchDownloadHint.topicCount === 1) {
-      topic = slugifyTopic(batchDownloadHint.firstTopic) || 'sugarpause';
-    } else {
-      topic = slugifyTopic(document.getElementById('topic').value) || 'sugarpause';
-    }
-    const folder = zip.folder(topic || 'sugarpause');
+    const topic = slugifyTopic(groups[0]?.topic || document.getElementById('topic').value) || 'sugarpause';
+    const folder = zip.folder(topic);
 
-    // Convert each canvas to a PNG blob and add to zip
     for (let i = 0; i < slides.length; i++) {
       const canvas = document.getElementById(`canvas-${i}`);
       if (!canvas) continue;
-
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) continue;
-
-      const filename = `slide-${String(i + 1).padStart(2, '0')}.png`;
-      folder.file(filename, blob);
+      folder.file(`slide-${String(i + 1).padStart(2, '0')}.png`, blob);
     }
 
-    // Generate the zip and trigger download
     const zipBlob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(zipBlob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${topic || 'sugarpause'}-slides.zip`;
+    link.download = `${topic}-slides.zip`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
