@@ -958,7 +958,143 @@ function drawPointlessHook(ctx, slide) {
   });
 }
 
+function extractChartPercent(text) {
+  const m = String(text || '').match(/(\d{1,3})\s*%/);
+  if (m) return Math.min(99, Math.max(1, parseInt(m[1], 10)));
+  if (String(text || '').includes('%%%')) return 58;
+  return null;
+}
+
+function formatTakeawayPercent(text, pct) {
+  const p = pct != null ? pct : 58;
+  return String(text || '')
+    .replace(/%%%/g, String(p))
+    .replace(/\s*—\s*/g, ' ')
+    .trim();
+}
+
+/** Pointless story beats: dark full-bleed text (no image box). */
+function drawPointlessStory(ctx, slide) {
+  ctx.fillStyle = '#0a0a18';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = '600 22px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Pointless', 72, 88);
+
+  ctx.fillStyle = '#f0f0ff';
+  ctx.font = '400 34px Inter, -apple-system, sans-serif';
+  drawWrappedText(ctx, slide.body || '', 72, 180, W - 144, 46, 920, 'left');
+}
+
+/** Pointless chart slide: white card, question, Yes + %, line chart, takeaway. */
+function drawPointlessData(ctx, slide) {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#5b8def';
+  ctx.font = '700 26px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('Pointless', W - 72, 72);
+
+  const question = slide.dataQuestion || slide.title || '';
+  const optionLabel = slide.dataLabel || 'Yes';
+  const pct = slide.chartPercent != null ? slide.chartPercent : (extractChartPercent(slide.dataTakeaway) || 58);
+  const takeaway = formatTakeawayPercent(slide.dataTakeaway || slide.body || '', pct);
+
+  ctx.fillStyle = '#111111';
+  ctx.textAlign = 'left';
+  ctx.font = '800 40px Inter, -apple-system, sans-serif';
+  const qLines = layoutLines(ctx, question, W - 144).slice(0, 4);
+  let y = 130;
+  const qLH = 48;
+  qLines.forEach((line, i) => {
+    ctx.fillText(line, 72, y + (i + 1) * qLH);
+  });
+  y += qLines.length * qLH + 36;
+
+  const optY = y;
+  ctx.strokeStyle = '#5b8def';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(88, optY, 14, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#5b8def';
+  ctx.beginPath();
+  ctx.arc(88, optY, 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#111111';
+  ctx.font = '700 32px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(optionLabel, 120, optY + 12);
+
+  ctx.fillStyle = '#5b8def';
+  ctx.textAlign = 'right';
+  ctx.font = '800 40px Inter, sans-serif';
+  ctx.fillText(`${pct}%`, W - 72, optY + 12);
+
+  const chartX = 72;
+  const chartY = optY + 70;
+  const chartW = W - 144;
+  const chartH = 340;
+
+  const areaGrad = ctx.createLinearGradient(0, chartY + chartH, 0, chartY);
+  areaGrad.addColorStop(0, 'rgba(91, 141, 239, 0.08)');
+  areaGrad.addColorStop(1, 'rgba(91, 141, 239, 0.35)');
+  ctx.fillStyle = areaGrad;
+
+  const points = [];
+  const n = 12;
+  for (let i = 0; i < n; i++) {
+    const t = i / (n - 1);
+    const wave = Math.sin(t * Math.PI * 1.2) * 0.12 + Math.sin(t * Math.PI * 3.1) * 0.06;
+    const trend = 0.35 + t * 0.35 + wave;
+    const py = chartY + chartH - trend * chartH * 0.85;
+    const px = chartX + t * chartW;
+    points.push({ x: px, y: py });
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, chartY + chartH);
+  points.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(points[n - 1].x, chartY + chartH);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#5b8def';
+  ctx.lineWidth = 4;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  points.forEach((p, i) => {
+    if (i === 0) ctx.moveTo(p.x, p.y);
+    else ctx.lineTo(p.x, p.y);
+  });
+  ctx.stroke();
+
+  const last = points[n - 1];
+  ctx.fillStyle = '#5b8def';
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#333333';
+  ctx.font = '400 26px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  const takeLines = layoutLines(ctx, takeaway, W - 144).slice(0, 4);
+  const takeY = chartY + chartH + 56;
+  takeLines.forEach((line, i) => {
+    ctx.fillText(line, 72, takeY + i * 34);
+  });
+}
+
 function drawPointlessItem(ctx, slide, idx) {
+  if (!slide.image) {
+    drawPointlessStory(ctx, slide);
+    return;
+  }
+
   ctx.fillStyle = '#0a0a18';
   ctx.fillRect(0, 0, W, H);
 
@@ -970,14 +1106,9 @@ function drawPointlessItem(ctx, slide, idx) {
   ctx.fillRect(0, 0, W, 6);
 
   ctx.fillStyle = '#a78bfa';
-  ctx.font = 'italic 400 24px "DM Serif Display", Georgia, serif';
+  ctx.font = '600 22px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`№ ${String(idx).padStart(2, '0')}`, 60, 80);
-
-  ctx.fillStyle = 'rgba(240, 240, 255, 0.55)';
-  ctx.font = '600 18px Inter, -apple-system, sans-serif';
-  ctx.textAlign = 'right';
-  drawTrackedText(ctx, 'POINTLESS', W - 60, 80, 4);
+  ctx.fillText('Pointless', 72, 88);
 
   const imgX = 80, imgY = 130, imgW = W - 160, imgH = 600;
   if (slide.image) {
@@ -1029,47 +1160,40 @@ function drawPointlessItem(ctx, slide, idx) {
 
 function drawPointlessCTA(ctx) {
   const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#12122a');
-  grad.addColorStop(0.6, '#0a0a18');
-  grad.addColorStop(1, '#1a1a2e');
+  grad.addColorStop(0, '#0a0a18');
+  grad.addColorStop(0.55, '#12122a');
+  grad.addColorStop(1, '#0a0a18');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  const glow = ctx.createRadialGradient(W * 0.5, H * 0.35, 0, W * 0.5, H * 0.35, 700);
-  glow.addColorStop(0, 'rgba(167, 139, 250, 0.35)');
-  glow.addColorStop(1, 'rgba(167, 139, 250, 0)');
+  const glow = ctx.createRadialGradient(W * 0.5, H * 0.42, 0, W * 0.5, H * 0.42, 520);
+  glow.addColorStop(0, 'rgba(167, 139, 250, 0.45)');
+  glow.addColorStop(0.55, 'rgba(91, 141, 239, 0.12)');
+  glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
-  drawGrain(ctx, 0.05);
+  drawGrain(ctx, 0.04);
 
-  let y = 120;
-  ctx.fillStyle = '#a78bfa';
-  ctx.font = '800 48px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('POINTLESS', W / 2, y);
-  y += 70;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 96px Inter, -apple-system, sans-serif';
+  ctx.shadowColor = 'rgba(167, 139, 250, 0.65)';
+  ctx.shadowBlur = 48;
+  ctx.fillText('Pointless', W / 2, H * 0.38);
+  ctx.shadowBlur = 0;
 
-  ctx.fillStyle = '#f0f0ff';
-  ctx.font = '400 42px "DM Serif Display", Georgia, serif';
-  ctx.fillText('Prediction market intelligence', W / 2, y);
-  y += 56;
-  ctx.fillStyle = 'rgba(240, 240, 255, 0.75)';
-  ctx.font = 'italic 400 28px "DM Serif Display", Georgia, serif';
-  ctx.fillText('for traders who read the signal', W / 2, y);
-  y += 120;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+  ctx.font = '400 32px Inter, -apple-system, sans-serif';
+  ctx.fillText('The intelligence layer for prediction markets.', W / 2, H * 0.38 + 70);
 
-  ctx.fillStyle = '#f0f0ff';
-  ctx.font = '700 36px Inter, -apple-system, sans-serif';
-  ctx.fillText('Follow for market breakdowns', W / 2, y);
-  y += 70;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '600 34px Inter, -apple-system, sans-serif';
+  ctx.fillText('Follow to see what the market\'s missing', W / 2, H * 0.72);
 
-  roundRect(ctx, W / 2 - 200, y, 400, 56, 28);
-  ctx.fillStyle = '#a78bfa';
-  ctx.fill();
-  ctx.fillStyle = '#0a0a18';
-  ctx.font = '700 22px Inter, sans-serif';
-  ctx.fillText('More on Kalshi + Polymarket', W / 2, y + 38);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.font = '400 22px Inter, -apple-system, sans-serif';
+  ctx.fillText('Get early access when we launch', W / 2, H - 72);
 }
 
 
@@ -1327,6 +1451,11 @@ IF FORMAT IS "single_news_slide":
 
   Include context_slide ONLY when INCLUDE_CONTEXT_SLIDE is true.
 
+  When BRAND is "pointless", ALSO include these fields (chart slide before the fixed CTA):
+    "dataQuestion": "Yes/no market question for the chart slide. 8-16 words.",
+    "dataLabel": "The option label on the chart (usually Yes).",
+    "dataTakeaway": "One sentence under the chart. Use %%% where a percent would go. Directional language if no real number."
+
   Example bullet labels:
   - SugarPause: THE STUDY, THE FINDING, THE CATCH, WHAT TO DO, THE LIE, THE TRUTH
   - Pointless: THE SETUP, THE SIGNAL, THE EDGE, WHAT MOVED IT, THE SPREAD, WHY IT MATTERS
@@ -1383,21 +1512,64 @@ HARD RULES (apply to all output, both brands, both formats)
 - If the input is too thin, STILL return valid JSON with editable placeholders. Never refuse with prose.`;
 }
 
+function defaultPointlessDataQuestion(parsed, topic) {
+  const explicit = String(parsed.dataQuestion || '').trim();
+  if (explicit) return explicit;
+  const t = String(topic || '').trim().replace(/\.$/, '');
+  if (!t) return 'What are Kalshi traders pricing on this contract?';
+  return `Are prediction markets pricing in that ${t}?`;
+}
+
+/** Appends chart + Pointless CTA to any Pointless deck (carousel or news). */
+function appendPointlessEndSlides(deck, parsed, topic) {
+  if (!isPointlessBrand()) return deck;
+
+  const dataQ = defaultPointlessDataQuestion(parsed, topic);
+  const dataLabel = String(parsed.dataLabel || '').trim() || 'Yes';
+  const rawTakeaway = String(parsed.dataTakeaway || '').trim()
+    || 'Kalshi traders have this priced at %%% following the latest news, with implied probability shifting as positioning updates.';
+  const chartPercent = extractChartPercent(rawTakeaway) || 58;
+
+  deck.push({
+    type: 'pointless_data',
+    dataQuestion: dataQ,
+    dataLabel,
+    dataTakeaway: formatTakeawayPercent(rawTakeaway, chartPercent),
+    chartPercent
+  });
+  deck.push({ type: 'pointless_cta' });
+  return deck;
+}
+
 function buildCarouselDeckFromParsed(parsed, topic) {
   if (parsed.hook && Array.isArray(parsed.items) && !parsed.format_type) {
     const deck = [];
+    const pointless = isPointlessBrand();
     deck.push({ type: 'hook', title: parsed.hook, body: '', image: null });
     parsed.items.forEach(item => {
-      deck.push({
-        type: 'item',
-        title: item.name,
-        body: item.caption,
-        image: null,
-        imageQuery: item.image_query || item.name,
-        imageOptions: null
-      });
+      if (pointless) {
+        deck.push({
+          type: 'pointless_story',
+          title: item.name,
+          body: item.caption,
+          image: null
+        });
+      } else {
+        deck.push({
+          type: 'item',
+          title: item.name,
+          body: item.caption,
+          image: null,
+          imageQuery: item.image_query || item.name,
+          imageOptions: null
+        });
+      }
     });
-    deck.push({ type: 'cta', title: '', body: '', image: null });
+    if (pointless) {
+      appendPointlessEndSlides(deck, parsed, topic);
+    } else {
+      deck.push({ type: 'cta', title: '', body: '', image: null });
+    }
     deck._format = parsed.format || 'list';
     return deck;
   }
@@ -1419,10 +1591,17 @@ function buildCarouselDeckFromParsed(parsed, topic) {
     ['chunk2', 'Part 2'],
     ['chunk3', 'Part 3']
   ];
+  const pointless = isPointlessBrand();
+
   chunkDefs.forEach(([key, fallbackTitle]) => {
     const text = String(parsed[key] || '').trim();
     if (text) {
-      deck.push({
+      deck.push(pointless ? {
+        type: 'pointless_story',
+        title: category || fallbackTitle,
+        body: text,
+        image: null
+      } : {
         type: 'item',
         title: category || fallbackTitle,
         body: text,
@@ -1433,25 +1612,28 @@ function buildCarouselDeckFromParsed(parsed, topic) {
     }
   });
 
-  const dataQ = String(parsed.dataQuestion || '').trim();
-  const dataLabel = String(parsed.dataLabel || '').trim();
-  const dataTakeaway = String(parsed.dataTakeaway || '').trim();
-  if (dataQ || dataLabel || dataTakeaway) {
-    const bodyParts = [];
-    if (dataLabel) bodyParts.push(dataLabel);
-    if (dataTakeaway) bodyParts.push(dataTakeaway);
-    deck.push({
-      type: 'item',
-      title: dataQ || 'The data',
-      body: bodyParts.join('\n\n'),
-      image: null,
-      imageQuery: imageQuery || 'chart statistics infographic',
-      imageOptions: null,
-      isDataSlide: true
-    });
+  if (pointless) {
+    appendPointlessEndSlides(deck, parsed, topic);
+  } else {
+    const dataQ = String(parsed.dataQuestion || '').trim();
+    const dataLabel = String(parsed.dataLabel || '').trim();
+    const dataTakeaway = String(parsed.dataTakeaway || '').trim();
+    if (dataQ || dataLabel || dataTakeaway) {
+      const bodyParts = [];
+      if (dataLabel) bodyParts.push(dataLabel);
+      if (dataTakeaway) bodyParts.push(dataTakeaway);
+      deck.push({
+        type: 'item',
+        title: dataQ || 'The data',
+        body: bodyParts.join('\n\n'),
+        image: null,
+        imageQuery: imageQuery || 'chart statistics infographic',
+        imageOptions: null,
+        isDataSlide: true
+      });
+    }
+    deck.push({ type: 'cta', title: '', body: '', image: null });
   }
-
-  deck.push({ type: 'cta', title: '', body: '', image: null });
   deck._format = 'carousel';
   deck._angle = parsed.angle;
   deck._captions = {
@@ -1493,6 +1675,10 @@ function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
       imageQuery: parsed.image_query || topic,
       imageOptions: null
     });
+  }
+
+  if (isPointlessBrand()) {
+    appendPointlessEndSlides(result, parsed, topic);
   }
 
   return result;
@@ -1953,6 +2139,9 @@ function renderEditors() {
     div.className = 'slide-editor';
 
     const label = slide.type === 'hook' ? 'Slide 1 — Hook' :
+                  slide.type === 'pointless_data' ? `Slide ${i+1} — Chart / market data` :
+                  slide.type === 'pointless_cta' ? `Slide ${i+1} — Pointless CTA` :
+                  slide.type === 'pointless_story' ? `Slide ${i+1} — Story beat` :
                   slide.type === 'cta'  ? `Slide ${i+1} — CTA (fixed design)` :
                   slide.type === 'news' ? '📰 News Slide' :
                   slide.type === 'news_context' ? '📰 Context slide (slide 2)' :
@@ -1960,7 +2149,33 @@ function renderEditors() {
 
     let html = `<h3>${label}</h3>`;
 
-    if (slide.type === 'cta') {
+    if (slide.type === 'pointless_cta') {
+      html += `<p style="color: var(--muted); font-size: 12px; line-height: 1.5;">
+        Fixed end card: Pointless logo, tagline, follow CTA, and early-access line.
+      </p>`;
+    } else if (slide.type === 'pointless_data') {
+      html += `<div class="field">
+        <label>Chart question</label>
+        <textarea data-i="${i}" data-field="dataQuestion" rows="3">${escapeHtml(slide.dataQuestion || '')}</textarea>
+      </div>`;
+      html += `<div class="field">
+        <label>Option label (e.g. Yes)</label>
+        <input type="text" data-i="${i}" data-field="dataLabel" value="${escapeHtml(slide.dataLabel || 'Yes')}" />
+      </div>`;
+      html += `<div class="field">
+        <label>Chart percentage (shown on slide)</label>
+        <input type="text" data-i="${i}" data-field="chartPercent" value="${escapeHtml(slide.chartPercent != null ? slide.chartPercent : '')}" />
+      </div>`;
+      html += `<div class="field">
+        <label>Takeaway (use %%% for percent placeholder)</label>
+        <textarea data-i="${i}" data-field="dataTakeaway" rows="3">${escapeHtml(slide.dataTakeaway || '')}</textarea>
+      </div>`;
+    } else if (slide.type === 'pointless_story') {
+      html += `<div class="field">
+        <label>Story text</label>
+        <textarea data-i="${i}" data-field="body" rows="5">${escapeHtml(slide.body || '')}</textarea>
+      </div>`;
+    } else if (slide.type === 'cta') {
       html += `<p style="color: var(--muted); font-size: 12px; line-height: 1.5;">
         Final slide is auto-generated with logo, app screenshots, "Follow for more menopause-friendly sugar tips," and "Coming soon to App Store." No edits needed.
       </p>`;
@@ -2099,6 +2314,9 @@ function renderEditors() {
       if (!slides[i].bullets) slides[i].bullets = [];
       slides[i].bullets[j] = slides[i].bullets[j] || { label: '', text: '' };
       slides[i].bullets[j].text = e.target.value;
+    } else if (f === 'chartPercent') {
+      const n = parseInt(e.target.value, 10);
+      slides[i].chartPercent = isNaN(n) ? e.target.value : n;
     } else {
       slides[i][f] = e.target.value;
     }
@@ -2255,6 +2473,12 @@ function drawSlide(canvas, slide, idx) {
 
   if (slide.type === 'hook') {
     drawHook(ctx, slide);
+  } else if (slide.type === 'pointless_data') {
+    drawPointlessData(ctx, slide);
+  } else if (slide.type === 'pointless_cta') {
+    drawPointlessCTA(ctx, slide);
+  } else if (slide.type === 'pointless_story') {
+    drawPointlessStory(ctx, slide);
   } else if (slide.type === 'cta') {
     drawCTA(ctx, slide);
   } else if (slide.type === 'news') {
