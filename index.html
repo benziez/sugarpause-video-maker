@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-brand="sugarpause">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SugarPause Slideshow Generator</title>
+<title id="docTitle">SugarPause Slideshow Generator</title>
+<link rel="icon" id="faviconLink" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍯</text></svg>" />
 
 <!-- Editorial typography: DM Serif Display for headlines (high-contrast modern serif), Inter for UI/body -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -15,17 +16,45 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
 
-  :root {
+  :root,
+  [data-brand="sugarpause"] {
     --bg: #0f0a14;
     --panel: #1a1220;
     --panel-2: #221629;
     --border: #2d1f38;
     --accent: #e6a8c4;
     --accent-2: #b885a8;
+    --accent-solid: #e8a4a0;
     --text: #f4ecf2;
     --muted: #9b8aa1;
     --success: #7fc8a9;
     --danger: #e07a7a;
+    --btn-gradient: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
+    --btn-text: #1a0f1f;
+    --headline-gradient: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
+    --toggle-active-bg: rgba(230, 168, 196, 0.08);
+    --toggle-active-ring: rgba(230, 168, 196, 0.2);
+    --context-accent: #e8a4a0;
+  }
+
+  [data-brand="pointless"] {
+    --bg: #0a0a18;
+    --panel: #12122a;
+    --panel-2: #1a1a2e;
+    --border: #2d2d5a;
+    --accent: #a78bfa;
+    --accent-2: #7c5ce0;
+    --accent-solid: #a78bfa;
+    --text: #f0f0ff;
+    --muted: #8888aa;
+    --success: #7fc8a9;
+    --danger: #e07a7a;
+    --btn-gradient: linear-gradient(135deg, #a78bfa 0%, #7c5ce0 100%);
+    --btn-text: #0a0a18;
+    --headline-gradient: linear-gradient(135deg, #a78bfa 0%, #c4b5fd 100%);
+    --toggle-active-bg: rgba(167, 139, 250, 0.12);
+    --toggle-active-ring: rgba(167, 139, 250, 0.28);
+    --context-accent: #a78bfa;
   }
 
   body {
@@ -42,7 +71,7 @@
   header h1 {
     font-size: 32px;
     font-weight: 700;
-    background: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
+    background: var(--headline-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -114,14 +143,14 @@
   }
   .news-context-toggle:hover { border-color: var(--muted); }
   .news-context-toggle.is-checked {
-    border-color: #e8a4a0;
-    box-shadow: 0 0 0 2px rgba(232, 164, 160, 0.22);
+    border-color: var(--context-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--context-accent) 22%, transparent);
   }
   .news-context-toggle input[type="checkbox"] {
     margin-top: 2px;
     width: 18px;
     height: 18px;
-    accent-color: #e8a4a0;
+    accent-color: var(--context-accent);
     flex-shrink: 0;
     cursor: pointer;
   }
@@ -147,8 +176,8 @@
   .style-option:hover { border-color: var(--muted); }
   .style-option.active {
     border-color: var(--accent);
-    background: rgba(230, 168, 196, 0.08);
-    box-shadow: 0 0 0 2px rgba(230, 168, 196, 0.2);
+    background: var(--toggle-active-bg);
+    box-shadow: 0 0 0 2px var(--toggle-active-ring);
   }
   .style-swatch {
     width: 100%;
@@ -220,8 +249,34 @@
   .content-type-option:hover { border-color: var(--muted); }
   .content-type-option.active {
     border-color: var(--accent);
-    background: rgba(230, 168, 196, 0.08);
-    box-shadow: 0 0 0 2px rgba(230, 168, 196, 0.2);
+    background: var(--toggle-active-bg);
+    box-shadow: 0 0 0 2px var(--toggle-active-ring);
+  }
+
+  .brand-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .brand-pill {
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    width: 100%;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s, transform 0.1s;
+  }
+  .brand-pill:hover:not(.active) { border-color: var(--muted); }
+  .brand-pill.active {
+    border-color: var(--accent);
+    background: var(--btn-gradient);
+    color: var(--btn-text);
+    box-shadow: 0 0 0 2px var(--toggle-active-ring);
   }
   .style-label {
     font-size: 13px;
@@ -238,8 +293,8 @@
   button {
     width: 100%;
     padding: 14px 20px;
-    background: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
-    color: #1a0f1f;
+    background: var(--btn-gradient);
+    color: var(--btn-text);
     border: none;
     border-radius: 10px;
     font-weight: 700;
@@ -285,8 +340,8 @@
   .image-drop.active {
     border-color: var(--accent);
     border-style: solid;
-    background: rgba(230, 168, 196, 0.05);
-    box-shadow: 0 0 0 3px rgba(230, 168, 196, 0.2);
+    background: var(--toggle-active-bg);
+    box-shadow: 0 0 0 3px var(--toggle-active-ring);
   }
   .image-drop.active::after {
     content: '⌘V to paste';
@@ -563,8 +618,8 @@
   }
   .batch-modal-actions button { width: auto; flex: 0 0 auto; }
   .batch-modal-actions button.primary-batch {
-    background: linear-gradient(135deg, #e6a8c4 0%, #b885a8 100%);
-    color: #1a0f1f;
+    background: var(--btn-gradient);
+    color: var(--btn-text);
     border: none;
   }
   .batch-progress-bar {
@@ -586,13 +641,21 @@
 <body>
 <div class="container">
   <header>
-    <h1>SugarPause Slideshow Generator</h1>
-    <p>Generate menopause-friendly content slideshows in seconds</p>
+    <h1 id="pageTitle">SugarPause Slideshow Generator</h1>
+    <p id="pageSubtitle">Generate menopause-friendly content slideshows in seconds</p>
   </header>
 
   <div class="layout">
     <!-- LEFT PANEL: INPUTS -->
     <div>
+      <div class="panel" style="margin-bottom: 16px;">
+        <h2>Brand</h2>
+        <div class="brand-toggle">
+          <button type="button" class="brand-pill active" data-brand="sugarpause">🍯 SugarPause</button>
+          <button type="button" class="brand-pill" data-brand="pointless">📊 Pointless</button>
+        </div>
+      </div>
+
       <div class="panel">
         <h2>1. Topic & Generation</h2>
 
@@ -666,7 +729,7 @@
         <div id="slideEditors"></div>
 
         <div class="actions" style="flex-direction: column;">
-          <button id="autoFindBtn" onclick="autoFindImages()" style="background: linear-gradient(135deg, #b885e6 0%, #e6a8c4 100%);">
+          <button id="autoFindBtn" onclick="autoFindImages()" style="background: var(--btn-gradient); color: var(--btn-text);">
             🔍 Auto-find Images for All Slides
           </button>
           <div style="display: flex; gap: 8px; width: 100%;">
@@ -682,7 +745,7 @@
       <h2>Slide Previews (1080x1350)</h2>
       <div id="previewGrid" class="preview-grid">
         <div class="empty-state" style="grid-column: 1 / -1;">
-          <div class="emoji">🍯</div>
+          <motion class="emoji" id="emptyStateEmoji">🍯</motion>
           <p>Enter a topic and generate copy to start</p>
         </div>
       </div>
@@ -705,6 +768,310 @@ let slides = []; // { type: 'hook'|'item'|'cta', title, body, image (dataURL) }
 let activePasteTarget = null; // index of currently focused image drop zone
 
 const W = 1080, H = 1350;
+
+// ============================================================
+// BRAND TOGGLE (sugarpause | pointless)
+// ============================================================
+const BRAND_META = {
+  sugarpause: {
+    pageTitle: 'SugarPause Slideshow Generator',
+    subtitle: 'Generate menopause-friendly content slideshows in seconds',
+    docTitle: 'SugarPause Slideshow Generator',
+    topicPlaceholder: 'e.g. New study shows sugar destroys menopause hormones',
+    topicHint: 'Be specific. The more direct, the better the hook.',
+    emoji: '🍯',
+    mark: 'SUGARPAUSE',
+    favicon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍯</text></svg>"
+  },
+  pointless: {
+    pageTitle: 'Pointless Slideshow Generator',
+    subtitle: 'Generate prediction market intelligence content in seconds',
+    docTitle: 'Pointless Slideshow Generator',
+    topicPlaceholder: "e.g. KD's injury changes the Rockets' playoff odds",
+    topicHint: 'Be specific. Markets, teams, or the angle you want priced in.',
+    emoji: '📊',
+    mark: 'POINTLESS',
+    favicon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>"
+  }
+};
+
+let currentBrand = localStorage.getItem('sugarpause_brand') || 'sugarpause';
+if (currentBrand !== 'sugarpause' && currentBrand !== 'pointless') currentBrand = 'sugarpause';
+
+function getActiveBrand() {
+  return currentBrand;
+}
+
+function isPointlessBrand() {
+  return currentBrand === 'pointless';
+}
+
+function getBrandAccent() {
+  return isPointlessBrand() ? '#a78bfa' : '#e8a4a0';
+}
+
+function getBrandMark() {
+  return BRAND_META[currentBrand]?.mark || 'SUGARPAUSE';
+}
+
+function applyBrandUI() {
+  const meta = BRAND_META[currentBrand] || BRAND_META.sugarpause;
+  document.documentElement.dataset.brand = currentBrand;
+
+  const pageTitle = document.getElementById('pageTitle');
+  const pageSubtitle = document.getElementById('pageSubtitle');
+  const docTitle = document.getElementById('docTitle');
+  const favicon = document.getElementById('faviconLink');
+  const topic = document.getElementById('topic');
+  const emptyEmoji = document.getElementById('emptyStateEmoji');
+  const visualStyleField = document.getElementById('visualStyleField');
+
+  if (pageTitle) pageTitle.textContent = meta.pageTitle;
+  if (pageSubtitle) pageSubtitle.textContent = meta.subtitle;
+  if (docTitle) docTitle.textContent = meta.docTitle;
+  if (favicon) favicon.href = meta.favicon;
+  if (topic) topic.placeholder = meta.topicPlaceholder;
+  const topicHint = topic?.parentElement?.querySelector('.hint');
+  if (topicHint) topicHint.textContent = meta.topicHint;
+  if (emptyEmoji) emptyEmoji.textContent = meta.emoji;
+  if (visualStyleField) visualStyleField.style.display = isPointlessBrand() ? 'none' : '';
+
+  document.querySelectorAll('.brand-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.brand === currentBrand);
+  });
+
+  const batchModal = document.getElementById('batchModal');
+  if (batchModal && !batchModal.hidden) updateBatchModalSubtitle();
+}
+
+function setBrand(brand) {
+  if (brand !== 'sugarpause' && brand !== 'pointless') return;
+  currentBrand = brand;
+  localStorage.setItem('sugarpause_brand', brand);
+  applyBrandUI();
+  if (slides.length > 0) {
+    renderEditors();
+    renderAll();
+  }
+}
+
+document.querySelectorAll('.brand-pill').forEach(btn => {
+  btn.addEventListener('click', () => setBrand(btn.dataset.brand));
+});
+applyBrandUI();
+
+function drawBrandFooterLine(ctx, brandY) {
+  const logoImg = (!isPointlessBrand() && typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
+  let lineStartX = 80;
+  if (logoImg && logoImg.complete && logoImg.naturalWidth) {
+    const logoH = 60;
+    const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
+    ctx.drawImage(logoImg, 80, brandY - logoH / 2, logoW, logoH);
+    lineStartX = 80 + logoW + 24;
+  } else if (isPointlessBrand()) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.font = '800 22px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('POINTLESS', 80, brandY);
+    lineStartX = 80 + ctx.measureText('POINTLESS').width + 24;
+    ctx.textBaseline = 'alphabetic';
+  }
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(lineStartX, brandY);
+  ctx.lineTo(W - 80, brandY);
+  ctx.stroke();
+}
+
+function drawPointlessHook(ctx, slide) {
+  const hasBgImage = !!slide.image;
+  if (hasBgImage) {
+    const bgImg = getCachedImage(slide.image);
+    if (bgImg && bgImg.complete && bgImg.naturalWidth) {
+      const ar = bgImg.naturalWidth / bgImg.naturalHeight;
+      const tar = W / H;
+      let dw, dh, dx, dy;
+      if (ar > tar) {
+        dh = H; dw = H * ar;
+        dx = -(dw - W) / 2; dy = 0;
+      } else {
+        dw = W; dh = W / ar;
+        dx = 0; dy = -(dh - H) / 2;
+      }
+      ctx.drawImage(bgImg, dx, dy, dw, dh);
+    } else {
+      ctx.fillStyle = '#0a0a18';
+      ctx.fillRect(0, 0, W, H);
+    }
+    const overlay = ctx.createLinearGradient(0, H * 0.2, 0, H);
+    overlay.addColorStop(0, 'rgba(10, 10, 24, 0.2)');
+    overlay.addColorStop(0.55, 'rgba(10, 10, 24, 0.75)');
+    overlay.addColorStop(1, 'rgba(10, 10, 24, 0.95)');
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, '#0a0a18');
+    grad.addColorStop(0.55, '#12122a');
+    grad.addColorStop(1, '#1a1a2e');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+    const glow = ctx.createRadialGradient(W * 0.75, H * 0.2, 0, W * 0.75, H * 0.2, 500);
+    glow.addColorStop(0, 'rgba(167, 139, 250, 0.25)');
+    glow.addColorStop(1, 'rgba(167, 139, 250, 0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  let hookCenterY = H / 2 + 40;
+  const category = (slide.body || 'TRENDING').trim().toUpperCase();
+  if (category) {
+    const pill = category.slice(0, 18);
+    ctx.font = '800 20px Inter, -apple-system, sans-serif';
+    const tw = ctx.measureText(pill).width;
+    const pw = tw + 28;
+    const ph = 36;
+    const px = 80;
+    const py = 100;
+    roundRect(ctx, px, py, pw, ph, 6);
+    ctx.fillStyle = '#a78bfa';
+    ctx.fill();
+    ctx.fillStyle = '#0a0a18';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillText(pill, px + 14, py + ph / 2);
+    ctx.textBaseline = 'alphabetic';
+    hookCenterY = py + ph + 220;
+  }
+
+  const text = slide.title || '';
+  drawAutoFitStrokedText(ctx, text, W / 2, hookCenterY, W - 200, 360, {
+    fillColor: '#ffffff',
+    strokeColor: '#000000',
+    strokeMult: 0.06,
+    weight: '700',
+    fontFamily: '"Inter", "Helvetica Neue", Arial, sans-serif',
+    lineHeightMult: 1.15,
+    maxSize: 76
+  });
+}
+
+function drawPointlessItem(ctx, slide, idx) {
+  ctx.fillStyle = '#0a0a18';
+  ctx.fillRect(0, 0, W, H);
+
+  const barGrad = ctx.createLinearGradient(0, 0, W, 0);
+  barGrad.addColorStop(0, '#a78bfa');
+  barGrad.addColorStop(0.5, '#7c5ce0');
+  barGrad.addColorStop(1, '#5b4bb7');
+  ctx.fillStyle = barGrad;
+  ctx.fillRect(0, 0, W, 6);
+
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = 'italic 400 24px "DM Serif Display", Georgia, serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`№ ${String(idx).padStart(2, '0')}`, 60, 80);
+
+  ctx.fillStyle = 'rgba(240, 240, 255, 0.55)';
+  ctx.font = '600 18px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  drawTrackedText(ctx, 'POINTLESS', W - 60, 80, 4);
+
+  const imgX = 80, imgY = 130, imgW = W - 160, imgH = 600;
+  if (slide.image) {
+    drawImageCover(ctx, slide.image, imgX, imgY, imgW, imgH, 24);
+  } else {
+    ctx.fillStyle = '#12122a';
+    roundRect(ctx, imgX, imgY, imgW, imgH, 24);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(167, 139, 250, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 8]);
+    roundRect(ctx, imgX + 12, imgY + 12, imgW - 24, imgH - 24, 18);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(167, 139, 250, 0.75)';
+    ctx.font = 'italic 400 32px "DM Serif Display", Georgia, serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('add image here', W / 2, imgY + imgH / 2 - 10);
+    ctx.fillStyle = 'rgba(240, 240, 255, 0.45)';
+    ctx.font = '500 18px Inter, sans-serif';
+    ctx.fillText('click • drop • paste (⌘V)', W / 2, imgY + imgH / 2 + 28);
+  }
+
+  ctx.fillStyle = '#f0f0ff';
+  ctx.textAlign = 'left';
+  const titleY = imgY + imgH + 90;
+  const titleText = slide.title || '';
+  const titleSizes = [72, 64, 58, 52, 48];
+  let titleSize = 72, titleLines = [titleText];
+  for (const s of titleSizes) {
+    ctx.font = `400 ${s}px "DM Serif Display", Georgia, serif`;
+    const lines = wrapText(ctx, titleText, W - 160);
+    if (lines.length <= 2 && lines.every(l => ctx.measureText(l).width <= W - 160)) {
+      titleSize = s;
+      titleLines = lines;
+      break;
+    }
+  }
+  ctx.font = `400 ${titleSize}px "DM Serif Display", Georgia, serif`;
+  titleLines.forEach((line, i) => {
+    ctx.fillText(line, 80, titleY + i * (titleSize * 1.1));
+  });
+
+  const captionY = titleY + titleLines.length * (titleSize * 1.1) + 30;
+  ctx.fillStyle = 'rgba(240, 240, 255, 0.88)';
+  ctx.font = '400 30px Inter, -apple-system, sans-serif';
+  drawWrappedText(ctx, slide.body || '', 80, captionY, W - 160, 42, 280, 'left');
+}
+
+function drawPointlessCTA(ctx) {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#12122a');
+  grad.addColorStop(0.6, '#0a0a18');
+  grad.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  const glow = ctx.createRadialGradient(W * 0.5, H * 0.35, 0, W * 0.5, H * 0.35, 700);
+  glow.addColorStop(0, 'rgba(167, 139, 250, 0.35)');
+  glow.addColorStop(1, 'rgba(167, 139, 250, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  drawGrain(ctx, 0.05);
+
+  let y = 120;
+  ctx.fillStyle = '#a78bfa';
+  ctx.font = '800 48px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('POINTLESS', W / 2, y);
+  y += 70;
+
+  ctx.fillStyle = '#f0f0ff';
+  ctx.font = '400 42px "DM Serif Display", Georgia, serif';
+  ctx.fillText('Prediction market intelligence', W / 2, y);
+  y += 56;
+  ctx.fillStyle = 'rgba(240, 240, 255, 0.75)';
+  ctx.font = 'italic 400 28px "DM Serif Display", Georgia, serif';
+  ctx.fillText('for traders who read the signal', W / 2, y);
+  y += 120;
+
+  ctx.fillStyle = '#f0f0ff';
+  ctx.font = '700 36px Inter, -apple-system, sans-serif';
+  ctx.fillText('Follow for market breakdowns', W / 2, y);
+  y += 70;
+
+  roundRect(ctx, W / 2 - 200, y, 400, 56, 28);
+  ctx.fillStyle = '#a78bfa';
+  ctx.fill();
+  ctx.fillStyle = '#0a0a18';
+  ctx.font = '700 22px Inter, sans-serif';
+  ctx.fillText('More on Kalshi + Polymarket', W / 2, y + 38);
+}
+
 
 // ============================================================
 // AUTH - logout link
@@ -760,10 +1127,7 @@ function setContentType(type) {
   if (newsCtxField) newsCtxField.style.display = newsMode ? '' : 'none';
 
   // Update topic placeholder hint
-  const topicInput = document.getElementById('topic');
-  topicInput.placeholder = newsMode
-    ? 'e.g. New study shows sugar destroys menopause hormones'
-    : 'e.g. Starbucks drinks making menopause worse';
+  applyBrandUI();
 
   // Update generate button label
   const genBtn = document.getElementById('generateBtn');
@@ -854,10 +1218,6 @@ function parseBatchTopics(raw) {
     .split(/\r?\n/)
     .map(line => line.replace(/^\s*(\d+[\.\)]\s*|[\-•]\s*)/, '').trim())
     .filter(Boolean);
-}
-
-function getActiveBrand() {
-  return localStorage.getItem('sugarpause_brand') || 'sugarpause';
 }
 
 function clampSlideCount(n) {
@@ -1628,7 +1988,7 @@ function renderEditors() {
         <textarea data-i="${i}" data-field="intro" rows="2">${escapeHtml(slide.intro || '')}</textarea>
       </div>`;
       (slide.bullets || []).forEach((b, j) => {
-        html += `<div class="field" style="border-left: 3px solid #e8a4a0; padding-left: 12px; margin-bottom: 12px;">
+        html += `<div class="field" style="border-left: 3px solid var(--accent-solid); padding-left: 12px; margin-bottom: 12px;">
           <label>Bullet ${j + 1} label</label>
           <input type="text" data-i="${i}" data-field="bullet-label-${j}" value="${escapeHtml(b.label || '')}" />
           <label style="margin-top: 8px;">Bullet ${j + 1} text</label>
@@ -1908,6 +2268,10 @@ function drawSlide(canvas, slide, idx) {
 
 // ---------- Hook slide ----------
 function drawHook(ctx, slide) {
+  if (isPointlessBrand()) {
+    drawPointlessHook(ctx, slide);
+    return;
+  }
   const hasBgImage = !!slide.image;
 
   if (hasBgImage) {
@@ -2167,6 +2531,10 @@ function getCachedImage(src) {
 
 // ---------- Item slide ----------
 function drawItem(ctx, slide, idx) {
+  if (isPointlessBrand()) {
+    drawPointlessItem(ctx, slide, idx);
+    return;
+  }
   const bold = (visualStyle === 'bold');
 
   // ----- Background -----
@@ -2207,7 +2575,7 @@ function drawItem(ctx, slide, idx) {
   ctx.fillStyle = brandCol;
   ctx.font = '600 18px Inter, -apple-system, sans-serif';
   ctx.textAlign = 'right';
-  drawTrackedText(ctx, 'SUGARPAUSE', W - 60, 80, 4);
+  drawTrackedText(ctx, getBrandMark(), W - 60, 80, 4);
 
   // Image area
   const imgX = 80, imgY = 130, imgW = W - 160, imgH = 600;
@@ -2289,10 +2657,14 @@ function drawNews(ctx, slide) {
       ctx.fillRect(0, 0, W, H);
     }
   } else {
-    // Dark gradient fallback when no image
     const fallback = ctx.createLinearGradient(0, 0, 0, H);
-    fallback.addColorStop(0, '#2a1620');
-    fallback.addColorStop(1, '#0e0a0d');
+    if (isPointlessBrand()) {
+      fallback.addColorStop(0, '#1a1a2e');
+      fallback.addColorStop(1, '#0a0a18');
+    } else {
+      fallback.addColorStop(0, '#2a1620');
+      fallback.addColorStop(1, '#0e0a0d');
+    }
     ctx.fillStyle = fallback;
     ctx.fillRect(0, 0, W, H);
   }
@@ -2312,25 +2684,8 @@ function drawNews(ctx, slide) {
   // Headline: above explainer (the big block)
   // Badge: above headline
 
-  // ===== Brand line + logo at the very bottom =====
   const brandY = H - 100;
-
-  // Logo bottom-left, centered on the brand line
-  const logoImg = (typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
-  let lineStartX = 80; // fallback if no logo
-  if (logoImg && logoImg.complete && logoImg.naturalWidth) {
-    const logoH = 60;
-    const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, 80, brandY - logoH/2, logoW, logoH);
-    lineStartX = 80 + logoW + 24; // start the line after the logo with padding
-  }
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(lineStartX, brandY);
-  ctx.lineTo(W - 80, brandY);
-  ctx.stroke();
+  drawBrandFooterLine(ctx, brandY);
 
   // ===== Explainer (italic, white, news-ticker style) — sits ABOVE the brand line =====
   // Render explainer first so we know exactly how tall it is, then headline sits above it
@@ -2403,8 +2758,13 @@ function drawNewsContext(ctx, slide) {
     }
   } else {
     const fallback = ctx.createLinearGradient(0, 0, 0, H);
-    fallback.addColorStop(0, '#2a1620');
-    fallback.addColorStop(1, '#0e0a0d');
+    if (isPointlessBrand()) {
+      fallback.addColorStop(0, '#1a1a2e');
+      fallback.addColorStop(1, '#0a0a18');
+    } else {
+      fallback.addColorStop(0, '#2a1620');
+      fallback.addColorStop(1, '#0e0a0d');
+    }
     ctx.fillStyle = fallback;
     ctx.fillRect(0, 0, W, H);
   }
@@ -2517,12 +2877,12 @@ function drawNewsContext(ctx, slide) {
   y += m.introH + introToBulletGap;
 
   m.rowData.forEach((row, bi) => {
-    ctx.fillStyle = '#e8a4a0';
+    ctx.fillStyle = getBrandAccent();
     const firstLabLineY = y + labelPx * 0.85;
     ctx.fillRect(marginX, firstLabLineY - labelPx * 0.5 - dotSize / 2, dotSize, dotSize);
 
     ctx.font = `800 ${labelPx}px Inter, -apple-system, sans-serif`;
-    ctx.fillStyle = '#e8a4a0';
+    ctx.fillStyle = getBrandAccent();
     row.labLines.forEach((line, li) => {
       ctx.fillText(line, bulletIndent, y + labelPx * 0.85 + li * (labelPx * 1.08));
     });
@@ -2543,21 +2903,7 @@ function drawNewsContext(ctx, slide) {
     ctx.fillText(line, W / 2, footBaselineLast - (footLines.length - 1 - i) * footLineH);
   });
 
-  const logoImg = (typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
-  let lineStartX = 80;
-  if (logoImg && logoImg.complete && logoImg.naturalWidth) {
-    const logoH = 60;
-    const logoW = logoH * (logoImg.naturalWidth / logoImg.naturalHeight);
-    ctx.drawImage(logoImg, 80, brandY - logoH / 2, logoW, logoH);
-    lineStartX = 80 + logoW + 24;
-  }
-
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(lineStartX, brandY);
-  ctx.lineTo(W - 80, brandY);
-  ctx.stroke();
+  drawBrandFooterLine(ctx, brandY);
 }
 
 // Tracks where the top of the most recently drawn headline ended up, so the badge can sit above it
@@ -2608,7 +2954,7 @@ function drawHeadlineWithHighlights(ctx, text, highlights, x, bottomY, maxWidth)
     const tokens = line.split(' ');
     tokens.forEach((tok, ti) => {
       const colored = isTokenHighlighted(tok, highlights);
-      ctx.fillStyle = colored ? '#e8a4a0' : '#ffffff';
+      ctx.fillStyle = colored ? getBrandAccent() : '#ffffff';
       ctx.fillText(tok, cursorX, lineY);
       cursorX += ctx.measureText(tok).width;
       if (ti < tokens.length - 1) {
@@ -2658,6 +3004,10 @@ function measureLineWidth(ctx, line) {
 
 // ---------- CTA slide ----------
 function drawCTA(ctx, slide) {
+  if (isPointlessBrand()) {
+    drawPointlessCTA(ctx);
+    return;
+  }
   // Warm cream gradient like hook for cohesion (lighter at top)
   const grad = ctx.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0, '#faf3ed');
