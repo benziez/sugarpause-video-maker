@@ -953,27 +953,29 @@ function applyBrandUI() {
   if (topicHint) topicHint.textContent = meta.topicHint;
   if (emptyEmoji) emptyEmoji.textContent = meta.emoji;
   const hideStyleToggle = isPointlessBrand() || isWinRipsBrand();
-  if (visualStyleField) visualStyleField.style.display = hideStyleToggle ? 'none' : '';
+  if (visualStyleField) {
+    visualStyleField.style.display = (hideStyleToggle || contentType === 'news') ? 'none' : '';
+  }
 
-  const contentTypeField = document.getElementById('contentTypeField');
   const newsCtxField = document.getElementById('newsContextSlideField');
   const slideCountField = document.getElementById('slideCountField');
-  if (isWinRipsBrand()) {
-    if (contentTypeField) contentTypeField.style.display = 'none';
-    if (newsCtxField) newsCtxField.style.display = 'none';
-    if (slideCountField) {
+  const newsMode = contentType === 'news';
+
+  if (newsCtxField) newsCtxField.style.display = newsMode ? '' : 'none';
+
+  if (slideCountField) {
+    if (newsMode) {
+      slideCountField.style.display = 'none';
+    } else {
       slideCountField.style.display = '';
       const hint = slideCountField.querySelector('.hint');
-      if (hint) hint.textContent = 'Fixed 6-slide WinRips deck: hook → story → reveal → compare → FOMO → CTA';
       const countInput = document.getElementById('slideCount');
-      if (countInput) countInput.value = '6';
-    }
-    if (contentType !== 'carousel') setContentType('carousel');
-  } else {
-    if (contentTypeField) contentTypeField.style.display = '';
-    if (slideCountField) {
-      const hint = slideCountField.querySelector('.hint');
-      if (hint) hint.textContent = '3–6 total: hook, story chunks, data slide, and CTA';
+      if (isWinRipsBrand()) {
+        if (hint) hint.textContent = 'Fixed 6-slide WinRips deck: hook → story → reveal → compare → FOMO → CTA';
+        if (countInput) countInput.value = '6';
+      } else if (hint) {
+        hint.textContent = '3–6 total: hook, story chunks, data slide, and CTA';
+      }
     }
   }
 
@@ -2119,9 +2121,26 @@ IF FORMAT IS "single_news_slide":
     "dataLabel": "The option label on the chart (usually Yes).",
     "dataTakeaway": "One sentence under the chart. Use %%% where a percent would go. Directional language if no real number."
 
+  When BRAND is "winrips", ALSO include these fields (slides 3-6 after news/context):
+    "reveal_title": "Short ALL CAPS insider reveal headline for slide 3.",
+    "reveal_body": "2-4 sentences: card details, pack odds, or value breakdown.",
+    "compare_title": "Short ALL CAPS comparison headline (e.g. MOST PEOPLE DON'T KNOW).",
+    "compare_body": "2-3 sentences: vs retail packs, what collectors miss.",
+    "cta_setup": "2-3 sentences building FOMO about ripping on WinRips.",
+    "captionA": "Hype/reaction caption + exactly 5 hashtags ending with #WinRips",
+    "captionB": "Educational caption + exactly 5 hashtags ending with #WinRips",
+    "captionC": "FOMO caption + exactly 5 hashtags ending with #WinRips"
+
+  WinRips news slide 1 rules:
+  - badge options: GRAIL PULL, HOT PULL, SHOCKING, PSA 10, CHASE CARD, PACK OPEN
+  - headline: hype breaking news about the pull/topic. Reference card values from topic.
+  - explainer: one sentence, collector voice, no corporate tone
+  - image_query: Pokémon holographic cards, pack opening, graded PSA slab
+
   Example bullet labels:
   - SugarPause: THE STUDY, THE FINDING, THE CATCH, WHAT TO DO, THE LIE, THE TRUTH
   - Pointless ACT 1: THE STORY, WHAT HAPPENED, WHY IT MATTERS, WHAT'S NEXT, THE TIMELINE, THE STAKES (never THE SIGNAL, THE EDGE, WHAT MOVED IT)
+  - WinRips: THE PULL, THE VALUE, THE ODDS, WHY IT MATTERS, THE CARD, THE COMPARISON
 
 IF FORMAT IS "carousel":
 ${brand === 'winrips' ? '  (WinRips uses the WINRIPS fixed 6-slide deck above. Ignore generic carousel rules below.)' : `  Generate a multi-slide deck. Slide count is SLIDE_COUNT (${count}).
@@ -2391,6 +2410,31 @@ function buildCarouselDeckFromParsed(parsed, topic) {
   return deck;
 }
 
+/** Appends reveal/compare/FOMO/CTA slides after WinRips news deck. */
+function appendWinRipsEndSlides(deck, parsed, topic) {
+  if (!isWinRipsBrand()) return deck;
+
+  deck.push({
+    type: 'winrips_reveal',
+    title: String(parsed.reveal_title || 'THE REVEAL').trim(),
+    body: String(parsed.reveal_body || '').trim()
+      || 'Specific card details and pack odds that most collectors never see broken down like this.'
+  });
+  deck.push({
+    type: 'winrips_compare',
+    title: String(parsed.compare_title || 'MOST PEOPLE DON\'T KNOW').trim(),
+    body: String(parsed.compare_body || '').trim()
+      || 'Buying packs at Target gives you retail odds. Online rips can surface completely different hit rates.'
+  });
+  deck.push({
+    type: 'winrips_cta_setup',
+    body: String(parsed.cta_setup || '').trim()
+      || 'Imagine hitting a grail without leaving your couch. That is what WinRips was built for.'
+  });
+  deck.push({ type: 'winrips_cta' });
+  return deck;
+}
+
 function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
   const slide1 = {
     type: 'news',
@@ -2425,6 +2469,14 @@ function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
 
   if (isPointlessBrand()) {
     appendPointlessEndSlides(result, parsed, topic);
+  } else if (isWinRipsBrand()) {
+    appendWinRipsEndSlides(result, parsed, topic);
+    result._captions = {
+      captionA: parsed.captionA || '',
+      captionB: parsed.captionB || '',
+      captionC: parsed.captionC || ''
+    };
+    result._tweetBody = parsed.tweetBody || '';
   }
 
   return result;
@@ -2455,9 +2507,6 @@ async function generateOneCarousel(topic, slideCount) {
 }
 
 async function generateOneNewsSlide(topic, options = {}) {
-  if (isWinRipsBrand()) {
-    return generateOneCarousel(topic, 6);
-  }
   const wantContextSlide = options.wantContextSlide ?? !!(document.getElementById('newsContextSlideToggle')?.checked);
   const brand = getActiveBrand();
   const prompt = buildGenerationPrompt({
@@ -2467,10 +2516,11 @@ async function generateOneNewsSlide(topic, options = {}) {
     includeContextSlide: wantContextSlide,
     topic
   });
+  const maxTokens = isWinRipsBrand() ? 2800 : (wantContextSlide ? 2000 : 1200);
   const res = await fetch('/api/generate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, maxTokens: wantContextSlide ? 2000 : 1200 })
+    body: JSON.stringify({ prompt, maxTokens })
   });
   if (!res.ok) {
     const err = await res.text();
@@ -2490,9 +2540,17 @@ function updateBatchModalSubtitle() {
   if (!el) return;
   if (contentType === 'news') {
     const ctx = document.getElementById('newsContextSlideToggle')?.checked;
-    el.textContent = ctx
-      ? 'Will generate two news slides per topic (headline + context).'
-      : 'Will generate one news slide per topic.';
+    if (isWinRipsBrand()) {
+      el.textContent = ctx
+        ? 'Will generate news + context + reveal/compare/FOMO/CTA slides per topic.'
+        : 'Will generate news headline + reveal/compare/FOMO/CTA slides per topic.';
+    } else {
+      el.textContent = ctx
+        ? 'Will generate two news slides per topic (headline + context).'
+        : 'Will generate one news slide per topic.';
+    }
+  } else if (isWinRipsBrand()) {
+    el.textContent = 'Will generate one full 6-slide WinRips deck per topic.';
   } else {
     const styleLabel = visualStyle === 'bold' ? 'bold black' : 'soft gradient';
     el.textContent = `Will generate one full carousel deck per topic in ${styleLabel} style.`;
@@ -2713,11 +2771,21 @@ async function generateNewsSlide(topic, btn) {
 
   try {
     slides = await generateOneNewsSlide(topic, { wantContextSlide });
+    if (slides._captions) slides.captions = { ...slides._captions };
+    if (slides._tweetBody) slides.tweetBody = slides._tweetBody;
     batchPostGroups = [{ topic, startIndex: 0, count: slides.length }];
     if (wantContextSlide && slides.length >= 2) {
-      showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
+      if (isWinRipsBrand()) {
+        showStatus('📰 WinRips slides generated (news + context + reveal/compare/CTA). Add background photos on slide 1.', 'success');
+      } else if (isPointlessBrand()) {
+        showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
+      } else {
+        showStatus('📰 News slides generated (headline + context). Add background photos on each slide.', 'success');
+      }
     } else if (wantContextSlide) {
       showStatus('📰 Headline slide ready, but the model did not return a valid context_slide (need 3-4 bullets). Try generating again.', 'info');
+    } else if (isWinRipsBrand()) {
+      showStatus('📰 WinRips news deck generated (headline + reveal/compare/CTA). Add a background image on slide 1.', 'success');
     } else {
       showStatus('📰 News slide generated. Add a background image to complete it.', 'success');
     }
@@ -3758,9 +3826,14 @@ function drawNews(ctx, slide) {
       }
       ctx.drawImage(bgImg, dx, dy, dw, dh);
     } else {
-      ctx.fillStyle = '#0e0a0d';
+      ctx.fillStyle = isWinRipsBrand() ? WINRIPS_BLACK : '#0e0a0d';
       ctx.fillRect(0, 0, W, H);
     }
+  } else if (isWinRipsBrand()) {
+    ctx.fillStyle = WINRIPS_BLACK;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.fillRect(0, 0, W, 5);
   } else {
     const fallback = ctx.createLinearGradient(0, 0, 0, H);
     if (isPointlessBrand()) {
@@ -3862,16 +3935,23 @@ function drawNewsContext(ctx, slide) {
       ctx.fillRect(0, 0, W, H);
     }
   } else {
-    const fallback = ctx.createLinearGradient(0, 0, 0, H);
-    if (isPointlessBrand()) {
-      fallback.addColorStop(0, '#1a1a2e');
-      fallback.addColorStop(1, '#0a0a18');
+    if (isWinRipsBrand()) {
+      ctx.fillStyle = WINRIPS_BLACK;
+      ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = WINRIPS_PINK;
+      ctx.fillRect(0, 0, W, 5);
     } else {
-      fallback.addColorStop(0, '#2a1620');
-      fallback.addColorStop(1, '#0e0a0d');
+      const fallback = ctx.createLinearGradient(0, 0, 0, H);
+      if (isPointlessBrand()) {
+        fallback.addColorStop(0, '#1a1a2e');
+        fallback.addColorStop(1, '#0a0a18');
+      } else {
+        fallback.addColorStop(0, '#2a1620');
+        fallback.addColorStop(1, '#0e0a0d');
+      }
+      ctx.fillStyle = fallback;
+      ctx.fillRect(0, 0, W, H);
     }
-    ctx.fillStyle = fallback;
-    ctx.fillRect(0, 0, W, H);
   }
 
   const overlay = ctx.createLinearGradient(0, H * 0.18, 0, H);
