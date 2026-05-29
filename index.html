@@ -57,6 +57,26 @@
     --context-accent: #a78bfa;
   }
 
+  [data-brand="winrips"] {
+    --bg: #000000;
+    --panel: #0a0a0a;
+    --panel-2: #111111;
+    --border: #222222;
+    --accent: #FF007F;
+    --accent-2: #cc0066;
+    --accent-solid: #FF007F;
+    --text: #ffffff;
+    --muted: #888888;
+    --success: #7fc8a9;
+    --danger: #e07a7a;
+    --btn-gradient: linear-gradient(135deg, #FF007F 0%, #cc0066 100%);
+    --btn-text: #ffffff;
+    --headline-gradient: linear-gradient(135deg, #FF007F 0%, #ff4da6 100%);
+    --toggle-active-bg: rgba(255, 0, 127, 0.12);
+    --toggle-active-ring: rgba(255, 0, 127, 0.28);
+    --context-accent: #FF007F;
+  }
+
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     background: var(--bg);
@@ -724,6 +744,7 @@
         <div class="brand-toggle">
           <button type="button" class="brand-pill active" data-brand="sugarpause">🍯 SugarPause</button>
           <button type="button" class="brand-pill" data-brand="pointless">📊 Pointless</button>
+          <button type="button" class="brand-pill" data-brand="winrips">🎴 WinRips</button>
         </div>
       </div>
 
@@ -734,7 +755,7 @@
           <a href="#" id="logoutLink" style="font-size: 11px; color: var(--muted); text-decoration: none;">Sign out →</a>
         </div>
 
-        <div class="field">
+        <div class="field" id="contentTypeField">
           <label>Content type</label>
           <div class="style-toggle">
             <button type="button" class="content-type-option active" data-content-type="carousel">
@@ -848,8 +869,11 @@ let activePasteTarget = null; // index of currently focused image drop zone
 const W = 1080, H = 1350;
 
 // ============================================================
-// BRAND TOGGLE (sugarpause | pointless)
+// BRAND TOGGLE (sugarpause | pointless | winrips)
 // ============================================================
+const WINRIPS_PINK = '#FF007F';
+const WINRIPS_BLACK = '#000000';
+
 const BRAND_META = {
   sugarpause: {
     pageTitle: 'SugarPause Slideshow Generator',
@@ -870,11 +894,21 @@ const BRAND_META = {
     emoji: '📊',
     mark: 'POINTLESS',
     favicon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>"
+  },
+  winrips: {
+    pageTitle: 'WinRips Slideshow Generator',
+    subtitle: 'Generate Pokémon pack opening & grail pull content in seconds',
+    docTitle: 'WinRips Slideshow Generator',
+    topicPlaceholder: 'e.g. Someone pulled a $37,000 Charizard from a $450 pack',
+    topicHint: 'Be specific. Card names, values, pack types, or shocking pull outcomes.',
+    emoji: '🎴',
+    mark: 'WINRIPS',
+    favicon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎴</text></svg>"
   }
 };
 
 let currentBrand = localStorage.getItem('sugarpause_brand') || 'sugarpause';
-if (currentBrand !== 'sugarpause' && currentBrand !== 'pointless') currentBrand = 'sugarpause';
+if (currentBrand !== 'sugarpause' && currentBrand !== 'pointless' && currentBrand !== 'winrips') currentBrand = 'sugarpause';
 
 function getActiveBrand() {
   return currentBrand;
@@ -884,8 +918,14 @@ function isPointlessBrand() {
   return currentBrand === 'pointless';
 }
 
+function isWinRipsBrand() {
+  return currentBrand === 'winrips';
+}
+
 function getBrandAccent() {
-  return isPointlessBrand() ? '#a78bfa' : '#e8a4a0';
+  if (isWinRipsBrand()) return WINRIPS_PINK;
+  if (isPointlessBrand()) return '#a78bfa';
+  return '#e8a4a0';
 }
 
 function getBrandMark() {
@@ -912,7 +952,30 @@ function applyBrandUI() {
   const topicHint = topic?.parentElement?.querySelector('.hint');
   if (topicHint) topicHint.textContent = meta.topicHint;
   if (emptyEmoji) emptyEmoji.textContent = meta.emoji;
-  if (visualStyleField) visualStyleField.style.display = isPointlessBrand() ? 'none' : '';
+  const hideStyleToggle = isPointlessBrand() || isWinRipsBrand();
+  if (visualStyleField) visualStyleField.style.display = hideStyleToggle ? 'none' : '';
+
+  const contentTypeField = document.getElementById('contentTypeField');
+  const newsCtxField = document.getElementById('newsContextSlideField');
+  const slideCountField = document.getElementById('slideCountField');
+  if (isWinRipsBrand()) {
+    if (contentTypeField) contentTypeField.style.display = 'none';
+    if (newsCtxField) newsCtxField.style.display = 'none';
+    if (slideCountField) {
+      slideCountField.style.display = '';
+      const hint = slideCountField.querySelector('.hint');
+      if (hint) hint.textContent = 'Fixed 6-slide WinRips deck: hook → story → reveal → compare → FOMO → CTA';
+      const countInput = document.getElementById('slideCount');
+      if (countInput) countInput.value = '6';
+    }
+    if (contentType !== 'carousel') setContentType('carousel');
+  } else {
+    if (contentTypeField) contentTypeField.style.display = '';
+    if (slideCountField) {
+      const hint = slideCountField.querySelector('.hint');
+      if (hint) hint.textContent = '3–6 total: hook, story chunks, data slide, and CTA';
+    }
+  }
 
   document.querySelectorAll('.brand-pill').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.brand === currentBrand);
@@ -923,7 +986,7 @@ function applyBrandUI() {
 }
 
 function setBrand(brand) {
-  if (brand !== 'sugarpause' && brand !== 'pointless') return;
+  if (brand !== 'sugarpause' && brand !== 'pointless' && brand !== 'winrips') return;
   currentBrand = brand;
   localStorage.setItem('sugarpause_brand', brand);
   applyBrandUI();
@@ -939,7 +1002,7 @@ document.querySelectorAll('.brand-pill').forEach(btn => {
 applyBrandUI();
 
 function drawBrandFooterLine(ctx, brandY) {
-  const logoImg = (!isPointlessBrand() && typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
+  const logoImg = (!isPointlessBrand() && !isWinRipsBrand() && typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
   let lineStartX = 80;
   if (logoImg && logoImg.complete && logoImg.naturalWidth) {
     const logoH = 60;
@@ -954,6 +1017,15 @@ function drawBrandFooterLine(ctx, brandY) {
     ctx.fillText('POINTLESS', 80, brandY);
     lineStartX = 80 + ctx.measureText('POINTLESS').width + 24;
     ctx.textBaseline = 'alphabetic';
+  } else if (isWinRipsBrand()) {
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.font = '800 22px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('WinRips', W - 80, brandY);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    lineStartX = 80;
   }
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
   ctx.lineWidth = 1.5;
@@ -1390,6 +1462,215 @@ function drawPointlessCTA(ctx) {
   ctx.textBaseline = 'alphabetic';
 }
 
+function drawWinRipsFooter(ctx) {
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.font = '800 26px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('WinRips', W - 64, H - 64);
+}
+
+function drawWinRipsBase(ctx, glow) {
+  ctx.fillStyle = WINRIPS_BLACK;
+  ctx.fillRect(0, 0, W, H);
+  if (glow) {
+    const g = ctx.createRadialGradient(W * 0.5, H * 0.38, 0, W * 0.5, H * 0.38, 560);
+    g.addColorStop(0, 'rgba(255, 0, 127, 0.12)');
+    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.fillRect(0, 0, W, 5);
+  drawWinRipsFooter(ctx);
+}
+
+function drawWinRipsHook(ctx, slide) {
+  if (slide.image) {
+    const bgImg = getCachedImage(slide.image);
+    if (bgImg && bgImg.complete && bgImg.naturalWidth) {
+      const ar = bgImg.naturalWidth / bgImg.naturalHeight;
+      const tar = W / H;
+      let dw, dh, dx, dy;
+      if (ar > tar) { dh = H; dw = H * ar; dx = -(dw - W) / 2; dy = 0; }
+      else { dw = W; dh = W / ar; dx = 0; dy = -(dh - H) / 2; }
+      ctx.drawImage(bgImg, dx, dy, dw, dh);
+    } else {
+      drawWinRipsBase(ctx, false);
+    }
+    const overlay = ctx.createLinearGradient(0, H * 0.15, 0, H);
+    overlay.addColorStop(0, 'rgba(0, 0, 0, 0.35)');
+    overlay.addColorStop(0.6, 'rgba(0, 0, 0, 0.82)');
+    overlay.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.fillRect(0, 0, W, 5);
+  } else {
+    drawWinRipsBase(ctx, true);
+  }
+
+  const category = (slide.body || 'GRAIL PULL').trim().toUpperCase().slice(0, 18);
+  ctx.font = '800 20px Inter, -apple-system, sans-serif';
+  const tw = ctx.measureText(category).width;
+  const px = 72, py = 96, pw = tw + 28, ph = 38;
+  roundRect(ctx, px, py, pw, ph, 6);
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.fill();
+  ctx.fillStyle = '#000000';
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  ctx.fillText(category, px + 14, py + ph / 2);
+  ctx.textBaseline = 'alphabetic';
+
+  const headline = (slide.title || '').toUpperCase();
+  drawHeadlineWithHighlights(ctx, headline, slide.highlights || [], 72, H * 0.78, W - 144);
+  drawWinRipsFooter(ctx);
+}
+
+function drawWinRipsStory(ctx, slide) {
+  drawWinRipsBase(ctx, false);
+  const marginX = 72;
+  const contentW = W - 144;
+  const bullets = slide.bullets || [];
+  const bulletIndent = marginX + 22;
+
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.font = '800 22px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('THE STORY', marginX, 100);
+
+  let y = 150;
+  if (slide.intro) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+    ctx.font = 'italic 400 30px Inter, -apple-system, sans-serif';
+    const introLines = layoutLines(ctx, slide.intro, contentW).slice(0, 2);
+    introLines.forEach((line, i) => {
+      ctx.fillText(line, marginX, y + (i + 1) * 36);
+    });
+    y += introLines.length * 36 + 40;
+  }
+
+  bullets.slice(0, 4).forEach((b, bi) => {
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.fillRect(marginX, y + 6, 10, 10);
+    ctx.font = '800 24px Inter, -apple-system, sans-serif';
+    ctx.fillText((b.label || '').toUpperCase(), bulletIndent, y + 18);
+    y += 32;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '400 28px Inter, -apple-system, sans-serif';
+    const txtLines = layoutLines(ctx, b.text || '', W - bulletIndent - 72).slice(0, 3);
+    txtLines.forEach((line, i) => {
+      ctx.fillText(line, bulletIndent, y + (i + 1) * 34);
+    });
+    y += txtLines.length * 34 + (bi < bullets.length - 1 ? 28 : 0);
+  });
+}
+
+function drawWinRipsTextSlide(ctx, slide, sectionLabel) {
+  drawWinRipsBase(ctx, true);
+  const padX = 72;
+  const contentW = W - padX * 2;
+
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.font = '800 22px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(sectionLabel, padX, 100);
+
+  let titleSize = 52;
+  const title = (slide.title || '').toUpperCase();
+  let titleLines = [];
+  for (const s of [52, 46, 40]) {
+    ctx.font = `800 ${s}px Inter, -apple-system, sans-serif`;
+    titleLines = layoutLines(ctx, title, contentW).slice(0, 3);
+    if (titleLines.length <= 2 || s === 40) { titleSize = s; break; }
+  }
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `800 ${titleSize}px Inter, -apple-system, sans-serif`;
+  let y = 160;
+  titleLines.forEach((line, i) => {
+    ctx.fillText(line, padX, y + (i + 1) * (titleSize * 1.12));
+  });
+  y += titleLines.length * (titleSize * 1.12) + 36;
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+  ctx.font = '400 32px Inter, -apple-system, sans-serif';
+  drawWrappedText(ctx, slide.body || '', padX, y, contentW, 42, H - y - 120, 'left');
+}
+
+function drawWinRipsReveal(ctx, slide) {
+  drawWinRipsTextSlide(ctx, slide, 'INSIDER DATA');
+}
+
+function drawWinRipsCompare(ctx, slide) {
+  drawWinRipsTextSlide(ctx, slide, 'THE COMPARISON');
+}
+
+function drawWinRipsCtaSetup(ctx, slide) {
+  drawWinRipsBase(ctx, true);
+  const padX = 72;
+  const contentW = W - padX * 2;
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.font = '800 22px Inter, -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('WHY WINRIPS', padX, 100);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 48px Inter, -apple-system, sans-serif';
+  const lines = layoutLines(ctx, slide.body || slide.title || '', contentW).slice(0, 6);
+  const lh = 58;
+  const blockH = lines.length * lh;
+  let startY = Math.round((H - blockH) / 2) - 20;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, padX, startY + (i + 1) * lh);
+  });
+}
+
+function drawWinRipsCTA(ctx) {
+  drawWinRipsBase(ctx, true);
+  const cx = W / 2;
+  const cardW = W - 112;
+  const cardX = (W - cardW) / 2;
+  const cardPadY = 72;
+  const logoSize = 110;
+  const logoH = Math.round(logoSize * 0.88);
+  const lines = [
+    { text: 'Follow to see the biggest pulls', size: 38, weight: '600' },
+    { text: 'Open your first pack at winrips.com', size: 30, weight: '500' },
+    { text: 'Link in bio to rip your first pack', size: 26, weight: '400', muted: true }
+  ];
+  let cardH = cardPadY * 2 + logoH + 48;
+  lines.forEach(l => { cardH += Math.round(l.size * 1.35) + 16; });
+  const cardY = Math.round((H - cardH) / 2);
+
+  ctx.fillStyle = 'rgba(17, 17, 17, 0.95)';
+  roundRect(ctx, cardX, cardY, cardW, cardH, 24);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 0, 127, 0.35)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, cardX, cardY, cardW, cardH, 24);
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `800 ${logoSize}px Inter, -apple-system, sans-serif`;
+  ctx.shadowColor = 'rgba(255, 0, 127, 0.55)';
+  ctx.shadowBlur = 40;
+  ctx.fillText('WinRips', cx, cardY + cardPadY + logoH);
+  ctx.shadowBlur = 0;
+
+  let y = cardY + cardPadY + logoH + 48;
+  lines.forEach(l => {
+    ctx.fillStyle = l.muted ? 'rgba(255, 255, 255, 0.55)' : '#ffffff';
+    ctx.font = `${l.weight} ${l.size}px Inter, -apple-system, sans-serif`;
+    const wrapped = layoutLines(ctx, l.text, cardW - 80);
+    wrapped.forEach((line, i) => {
+      ctx.fillText(line, cx, y + (i + 1) * Math.round(l.size * 1.2));
+    });
+    y += wrapped.length * Math.round(l.size * 1.2) + 16;
+  });
+  drawWinRipsFooter(ctx);
+}
+
 
 // ============================================================
 // AUTH - logout link
@@ -1675,8 +1956,58 @@ ACT 2 (dataQuestion, dataLabel, dataTakeaway on chart slide + fixed CTA slide):
 
 SELF-CHECK (Pointless): Do headline and context_slide contain ANY banned ACT 1 word? If yes, rewrite ACT 1 as pure news before returning.
 ` : '';
+  const winRipsCarouselRules = brand === 'winrips' ? `
+════════════════════════════════════════════════
+WINRIPS — FIXED 6-SLIDE DECK (MANDATORY)
+════════════════════════════════════════════════
 
-  return `You write social media slideshow copy for two different brands. The current brand and output format are passed in via variables:
+WinRips ALWAYS generates exactly 6 slides. Ignore SLIDE_COUNT. Return format_type "winrips_carousel".
+
+Audience: Pokémon card collectors, pack opening fans, people chasing grails.
+Voice: hype collector account. Conversational, exciting, never corporate. Use collector terminology: PSA grades, holos, pulls, grails, FMV, slabs, chase cards, rip, pack odds.
+Hook MUST reference real card values or shocking pack outcomes from TOPIC. Use dollar amounts when the topic implies them.
+
+Slide mapping:
+1. headline + category pill + highlights → attention-grabbing pull/value hook
+2. story_intro + story_bullets (3-4) → expand the hook (values, what happened, why it matters)
+3. reveal_title + reveal_body → specific card details, pack odds, or value breakdown (insider info feel)
+4. compare_title + compare_body → social proof or comparison ("Most people don't know..." / "vs buying a pack at Target...")
+5. cta_setup → build curiosity/FOMO about WinRips (one compelling paragraph)
+6. Fixed CTA slide (no copy needed in JSON)
+
+Captions (REQUIRED):
+- captionA: Hype/reaction angle ("nobody is talking about this...")
+- captionB: Educational angle ("here's what the odds actually look like...")
+- captionC: FOMO angle ("imagine pulling this for $450...")
+- Each caption: lowercase, conversational, under 150 chars before hashtags, then EXACTLY 5 hashtags on a new line, LAST hashtag MUST be #WinRips
+
+Return JSON shape:
+{
+  "format_type": "winrips_carousel",
+  "category": "ALL CAPS pill on slide 1. Options: GRAIL PULL, PACK OPENING, SHOCKING VALUE, CHASE CARD, PSA 10, MYSTERY PACK, HOT PULL.",
+  "headline": "Bold hook about pack pull, grail, or shocking value. 6-14 words. Reference specific cards/values from topic.",
+  "highlights": ["1-2 substrings from headline to highlight in hot pink (#FF007F)"],
+  "story_intro": "ONE bridge sentence, 10-16 words.",
+  "story_bullets": [
+    { "label": "2-3 WORD ALL-CAPS LABEL", "text": "12-22 word punchy sentence." }
+  ],
+  "reveal_title": "Short ALL CAPS title for slide 3 (insider reveal).",
+  "reveal_body": "2-4 sentences: card details, pack odds, value breakdown. Insider info tone.",
+  "compare_title": "Short ALL CAPS comparison headline.",
+  "compare_body": "2-3 sentences: vs retail, what most people miss, why WinRips angle matters.",
+  "cta_setup": "2-3 sentences building FOMO about ripping packs on WinRips.",
+  "captionA": "Hype caption + 5 hashtags ending with #WinRips",
+  "captionB": "Educational caption + 5 hashtags ending with #WinRips",
+  "captionC": "FOMO caption + 5 hashtags ending with #WinRips",
+  "tweetBody": "Standalone tweet, 2-3 sentences, max ~250 chars.",
+  "image_query": "Pokémon holographic cards, pack opening, graded PSA slab, rare Charizard"
+}
+
+Bullet labels: THE PULL, THE VALUE, THE ODDS, WHY IT MATTERS, THE CARD, THE COMPARISON
+NO em dashes or en dashes anywhere.
+` : '';
+
+  return `You write social media slideshow copy for three different brands. The current brand and output format are passed in via variables:
 
 BRAND: ${brand}
 FORMAT: ${format}
@@ -1708,6 +2039,15 @@ IF BRAND IS "pointless":
   ACT 2 defensible language: "markets are pricing", "traders are positioning", "implied probability shifted", "volume spiked"
   AVOID: fabricated percentages, fake attributions ("according to Bloomberg"), declarative financial advice ("buy this contract").
 ${pointlessDeckRules}
+IF BRAND IS "winrips":
+  Audience: Pokémon card collectors, pack opening fans, grail chasers.
+  Voice: hype collector account. Conversational, exciting, never corporate.
+  Vocabulary: PSA grades, holos, pulls, grails, FMV, slabs, chase cards, rip, pack odds, booster box, raw vs graded.
+  Hooks lean: shocking value pulls, "$X card from $Y pack", odds nobody talks about, grail reveals.
+  Vibe: pure black (#000000), hot pink accent (#FF007F), white text, premium dark.
+  Hashtags: always end captions with exactly 5 hashtags, last one #WinRips + topical (#pokemon #pokemontcg #tcg etc.)
+  AVOID: corporate marketing speak, generic "check out our app", fabricated card values not implied by topic.
+${winRipsCarouselRules}
 ════════════════════════════════════════════════
 STEP 2 — PICK THE ANGLE (do this internally)
 ════════════════════════════════════════════════
@@ -1784,7 +2124,7 @@ IF FORMAT IS "single_news_slide":
   - Pointless ACT 1: THE STORY, WHAT HAPPENED, WHY IT MATTERS, WHAT'S NEXT, THE TIMELINE, THE STAKES (never THE SIGNAL, THE EDGE, WHAT MOVED IT)
 
 IF FORMAT IS "carousel":
-  Generate a multi-slide deck. Slide count is SLIDE_COUNT (${count}).
+${brand === 'winrips' ? '  (WinRips uses the WINRIPS fixed 6-slide deck above. Ignore generic carousel rules below.)' : `  Generate a multi-slide deck. Slide count is SLIDE_COUNT (${count}).
 
   Structure by slide count:
   - 6 slides: Hook → Chunk1 → Chunk2 → Chunk3 → Data/Chart → CTA
@@ -1814,19 +2154,20 @@ IF FORMAT IS "carousel":
     "captionC": "Caption variant C implicit debate. 3-5 hashtags on new line. Under 150 chars before hashtags.",
     "tweetBody": "Standalone tweet for video overlay. 2-3 sentences, max ~250 chars.",
     "image_query": "Optional background image search for hook slide."
-  }
+  }`}
 
 ════════════════════════════════════════════════
-HARD RULES (apply to all output, both brands, both formats)
+HARD RULES (apply to all output, all brands, both formats)
 ════════════════════════════════════════════════
 
 - ALWAYS pick the angle (news vs contrarian) before writing anything.
 - The output must ADVANCE THE ARGUMENT. Every field reinforces the angle.
-- DO NOT fabricate percentages, market prices, study stats, or dollar amounts.
+- DO NOT fabricate percentages, market prices, study stats, or dollar amounts unless implied by topic.
 - DO NOT attribute claims to specific named sources/outlets/people.
 - DO NOT use em dashes or en dashes anywhere.
 - DO NOT use Pointless-banned betting phrases when brand is pointless.
 - (Pointless) ACT 1 slides are NEWS ONLY. Market/trader language belongs ONLY in dataQuestion and dataTakeaway.
+- (WinRips) Captions must end with exactly 5 hashtags, last one #WinRips.
 - DO NOT give declarative advice.
 - DO use brand-appropriate vocabulary, hashtags, and visual cues.
 - Every output must reference SPECIFIC details from the input. Never generic.
@@ -1865,7 +2206,88 @@ function appendPointlessEndSlides(deck, parsed, topic) {
   return deck;
 }
 
+function normalizeWinRipsBullets(parsed) {
+  const raw = parsed.story_bullets
+    || (parsed.context_slide && parsed.context_slide.bullets)
+    || [];
+  const norm = (Array.isArray(raw) ? raw : []).slice(0, 4).map(b => ({
+    label: String(b.label || '').trim().toUpperCase(),
+    text: String(b.text || '').trim()
+  })).filter(b => b.label || b.text);
+  if (norm.length >= 3) return norm;
+  const fallbacks = [
+    { label: 'THE PULL', text: String(parsed.chunk1 || '').trim() },
+    { label: 'THE VALUE', text: String(parsed.chunk2 || '').trim() },
+    { label: 'WHY IT MATTERS', text: String(parsed.chunk3 || '').trim() }
+  ].filter(b => b.text);
+  return norm.length ? norm : (fallbacks.length >= 2 ? fallbacks : [
+    { label: 'THE PULL', text: 'A grail card hit that changed everything for this rip session.' },
+    { label: 'THE VALUE', text: 'The FMV on this card puts most retail pulls to shame.' },
+    { label: 'WHY IT MATTERS', text: 'This is why collectors chase online rips over store packs.' }
+  ]);
+}
+
+function buildWinRipsDeckFromParsed(parsed, topic) {
+  const deck = [];
+  const headline = String(parsed.headline || parsed.hook || topic || '').trim();
+  const category = String(parsed.category || 'GRAIL PULL').trim().toUpperCase();
+  const highlights = Array.isArray(parsed.highlights) ? parsed.highlights : [];
+  const bullets = normalizeWinRipsBullets(parsed);
+
+  deck.push({
+    type: 'winrips_hook',
+    title: headline,
+    body: category,
+    highlights,
+    image: null,
+    imageQuery: parsed.image_query || topic,
+    imageOptions: null
+  });
+
+  deck.push({
+    type: 'winrips_story',
+    intro: String(parsed.story_intro || parsed.context_slide?.intro || '').trim(),
+    bullets,
+    footer: String(parsed.story_footer || parsed.context_slide?.footer || '').trim()
+  });
+
+  deck.push({
+    type: 'winrips_reveal',
+    title: String(parsed.reveal_title || 'THE REVEAL').trim(),
+    body: String(parsed.reveal_body || parsed.chunk1 || '').trim()
+      || 'Specific card details and pack odds that most collectors never see broken down like this.'
+  });
+
+  deck.push({
+    type: 'winrips_compare',
+    title: String(parsed.compare_title || 'MOST PEOPLE DON\'T KNOW').trim(),
+    body: String(parsed.compare_body || parsed.chunk2 || '').trim()
+      || 'Buying packs at Target gives you retail odds. Online rips can surface completely different hit rates.'
+  });
+
+  deck.push({
+    type: 'winrips_cta_setup',
+    body: String(parsed.cta_setup || parsed.chunk3 || '').trim()
+      || 'Imagine hitting a grail without leaving your couch. That is what WinRips was built for.'
+  });
+
+  deck.push({ type: 'winrips_cta' });
+
+  deck._format = 'winrips';
+  deck._captions = {
+    captionA: parsed.captionA || '',
+    captionB: parsed.captionB || '',
+    captionC: parsed.captionC || ''
+  };
+  deck._tweetBody = parsed.tweetBody || '';
+  return deck;
+}
+
 function buildCarouselDeckFromParsed(parsed, topic) {
+  if (isWinRipsBrand() || parsed.format_type === 'winrips_carousel') {
+    return buildWinRipsDeckFromParsed(parsed, topic);
+  }
+
   if (parsed.hook && Array.isArray(parsed.items) && !parsed.format_type) {
     const deck = [];
     const pointless = isPointlessBrand();
@@ -2009,7 +2431,7 @@ function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
 }
 
 async function generateOneCarousel(topic, slideCount) {
-  const count = clampSlideCount(slideCount ?? document.getElementById('slideCount').value);
+  const count = isWinRipsBrand() ? 6 : clampSlideCount(slideCount ?? document.getElementById('slideCount').value);
   const brand = getActiveBrand();
   const prompt = buildGenerationPrompt({
     brand,
@@ -2033,6 +2455,9 @@ async function generateOneCarousel(topic, slideCount) {
 }
 
 async function generateOneNewsSlide(topic, options = {}) {
+  if (isWinRipsBrand()) {
+    return generateOneCarousel(topic, 6);
+  }
   const wantContextSlide = options.wantContextSlide ?? !!(document.getElementById('newsContextSlideToggle')?.checked);
   const brand = getActiveBrand();
   const prompt = buildGenerationPrompt({
@@ -2267,7 +2692,8 @@ async function generateContent() {
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
-    const formatLabel = deck._format === 'list' ? '📋 List/roundup' :
+    const formatLabel = deck._format === 'winrips' ? '🎴 WinRips 6-slide deck' :
+                        deck._format === 'list' ? '📋 List/roundup' :
                         deck._format === 'narrative' ? '📖 Narrative story arc' :
                         `📊 Carousel deck (${count} slides)`;
     showStatus(`${formatLabel}. Add images, captions below, and tweak text as needed.`, 'success');
@@ -2314,6 +2740,7 @@ async function generateNewsSlide(topic, btn) {
 async function autoFindImages() {
   const itemSlides = slides.map((s, i) => ({ slide: s, idx: i })).filter(x =>
     x.slide.type === 'item' || x.slide.type === 'news' || x.slide.type === 'news_context'
+    || x.slide.type === 'winrips_hook'
   );
   if (itemSlides.length === 0) {
     showStatus('Generate copy first.', 'error');
@@ -2507,6 +2934,12 @@ function renderEditors() {
     div.className = 'slide-editor';
 
     const label = slide.type === 'hook' ? 'Slide 1 — Hook' :
+                  slide.type === 'winrips_hook' ? 'Slide 1 — Hook' :
+                  slide.type === 'winrips_story' ? `Slide ${i+1} — Story / bullets` :
+                  slide.type === 'winrips_reveal' ? `Slide ${i+1} — Reveal / data` :
+                  slide.type === 'winrips_compare' ? `Slide ${i+1} — Comparison` :
+                  slide.type === 'winrips_cta_setup' ? `Slide ${i+1} — FOMO setup` :
+                  slide.type === 'winrips_cta' ? `Slide ${i+1} — WinRips CTA` :
                   slide.type === 'pointless_data' ? `Slide ${i+1} — Chart / market data` :
                   slide.type === 'pointless_cta' ? `Slide ${i+1} — Pointless CTA` :
                   slide.type === 'pointless_story' ? `Slide ${i+1} — Story beat` :
@@ -2517,7 +2950,51 @@ function renderEditors() {
 
     let html = `<h3>${label}</h3>`;
 
-    if (slide.type === 'pointless_cta') {
+    if (slide.type === 'winrips_cta') {
+      html += `<p style="color: var(--muted); font-size: 12px; line-height: 1.5;">
+        Fixed end card: WinRips logo, follow CTA, winrips.com, and link in bio line.
+      </p>`;
+    } else if (slide.type === 'winrips_hook') {
+      html += `<div class="field">
+        <label>Headline (renders in all caps)</label>
+        <textarea data-i="${i}" data-field="title" rows="3">${escapeHtml(slide.title || '')}</textarea>
+      </div>`;
+      html += `<div class="field">
+        <label>Category pill</label>
+        <input type="text" data-i="${i}" data-field="body" value="${escapeHtml(slide.body || '')}" placeholder="e.g. GRAIL PULL" />
+      </div>`;
+      html += `<div class="field">
+        <label>Pink-highlighted words (comma separated)</label>
+        <input type="text" data-i="${i}" data-field="highlights-csv" value="${escapeHtml((slide.highlights || []).join(', '))}" />
+      </div>`;
+    } else if (slide.type === 'winrips_story') {
+      html += `<div class="field">
+        <label>Intro</label>
+        <textarea data-i="${i}" data-field="intro" rows="2">${escapeHtml(slide.intro || '')}</textarea>
+      </div>`;
+      (slide.bullets || []).forEach((b, j) => {
+        html += `<div class="field" style="border-left: 3px solid var(--accent-solid); padding-left: 12px; margin-bottom: 12px;">
+          <label>Bullet ${j + 1} label</label>
+          <input type="text" data-i="${i}" data-field="bullet-label-${j}" value="${escapeHtml(b.label || '')}" />
+          <label style="margin-top: 8px;">Bullet ${j + 1} text</label>
+          <textarea data-i="${i}" data-field="bullet-text-${j}" rows="2">${escapeHtml(b.text || '')}</textarea>
+        </div>`;
+      });
+    } else if (slide.type === 'winrips_reveal' || slide.type === 'winrips_compare') {
+      html += `<div class="field">
+        <label>Title</label>
+        <textarea data-i="${i}" data-field="title" rows="2">${escapeHtml(slide.title || '')}</textarea>
+      </div>`;
+      html += `<div class="field">
+        <label>Body</label>
+        <textarea data-i="${i}" data-field="body" rows="5">${escapeHtml(slide.body || '')}</textarea>
+      </div>`;
+    } else if (slide.type === 'winrips_cta_setup') {
+      html += `<div class="field">
+        <label>FOMO setup text</label>
+        <textarea data-i="${i}" data-field="body" rows="5">${escapeHtml(slide.body || '')}</textarea>
+      </div>`;
+    } else if (slide.type === 'pointless_cta') {
       html += `<p style="color: var(--muted); font-size: 12px; line-height: 1.5;">
         Fixed end card: Pointless logo, tagline, follow CTA, and early-access line.
       </p>`;
@@ -2606,11 +3083,12 @@ function renderEditors() {
     }
 
     // Image upload — for item, hook (optional bg), news, and news_context (each own background)
-    if (slide.type === 'item' || slide.type === 'hook' || slide.type === 'news' || slide.type === 'news_context') {
+    if (slide.type === 'item' || slide.type === 'hook' || slide.type === 'news' || slide.type === 'news_context' || slide.type === 'winrips_hook') {
       const labelText = slide.type === 'hook' ? 'Background image (optional)' :
+                        slide.type === 'winrips_hook' ? 'Background image (optional)' :
                         slide.type === 'news' || slide.type === 'news_context' ? 'Background image' :
                                                 'Image';
-      const placeholderText = slide.type === 'hook'
+      const placeholderText = slide.type === 'hook' || slide.type === 'winrips_hook'
         ? '<p><strong>Optional</strong> — add a photo to use as the hook background<br/>click here then paste (⌘V), or drop a file</p>'
         : slide.type === 'news' || slide.type === 'news_context'
         ? '<p><strong>Add a background photo</strong> — strong newsworthy image works best<br/>click here then paste (⌘V), or drop a file</p>'
@@ -2773,7 +3251,7 @@ function handlePaste(e) {
       const file = item.getAsFile();
       // Priority: active target (any slide type that accepts images) > first empty item slot
       let idx = activePasteTarget;
-      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook' || slides[idx].type === 'news' || slides[idx].type === 'news_context');
+      const acceptsImage = idx !== null && slides[idx] && (slides[idx].type === 'item' || slides[idx].type === 'hook' || slides[idx].type === 'news' || slides[idx].type === 'news_context' || slides[idx].type === 'winrips_hook');
       if (!acceptsImage) {
         idx = slides.findIndex(s => (s.type === 'item' || s.type === 'news' || s.type === 'news_context') && !s.image);
       }
@@ -2860,6 +3338,18 @@ function drawSlide(canvas, slide, idx) {
 
   if (slide.type === 'hook') {
     drawHook(ctx, slide);
+  } else if (slide.type === 'winrips_hook') {
+    drawWinRipsHook(ctx, slide);
+  } else if (slide.type === 'winrips_story') {
+    drawWinRipsStory(ctx, slide);
+  } else if (slide.type === 'winrips_reveal') {
+    drawWinRipsReveal(ctx, slide);
+  } else if (slide.type === 'winrips_compare') {
+    drawWinRipsCompare(ctx, slide);
+  } else if (slide.type === 'winrips_cta_setup') {
+    drawWinRipsCtaSetup(ctx, slide);
+  } else if (slide.type === 'winrips_cta') {
+    drawWinRipsCTA(ctx, slide);
   } else if (slide.type === 'pointless_data') {
     drawPointlessData(ctx, slide);
   } else if (slide.type === 'pointless_cta') {
@@ -2879,6 +3369,10 @@ function drawSlide(canvas, slide, idx) {
 
 // ---------- Hook slide ----------
 function drawHook(ctx, slide) {
+  if (isWinRipsBrand()) {
+    drawWinRipsHook(ctx, slide);
+    return;
+  }
   if (isPointlessBrand()) {
     drawPointlessHook(ctx, slide);
     return;
