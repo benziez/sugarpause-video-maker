@@ -910,6 +910,8 @@ const BRAND_META = {
 let currentBrand = localStorage.getItem('sugarpause_brand') || 'sugarpause';
 if (currentBrand !== 'sugarpause' && currentBrand !== 'pointless' && currentBrand !== 'winrips') currentBrand = 'sugarpause';
 
+let contentType = localStorage.getItem('sugarpause_content_type') || 'carousel';
+
 function getActiveBrand() {
   return currentBrand;
 }
@@ -1001,7 +1003,6 @@ function setBrand(brand) {
 document.querySelectorAll('.brand-pill').forEach(btn => {
   btn.addEventListener('click', () => setBrand(btn.dataset.brand));
 });
-applyBrandUI();
 
 function drawBrandFooterLine(ctx, brandY) {
   const logoImg = (!isPointlessBrand() && !isWinRipsBrand() && typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
@@ -1712,7 +1713,6 @@ setVisualStyle(visualStyle);
 // ============================================================
 // CONTENT TYPE TOGGLE ('carousel' = 7-slide deck, 'news' = single news slide)
 // ============================================================
-let contentType = localStorage.getItem('sugarpause_content_type') || 'carousel';
 
 function setContentType(type) {
   contentType = type;
@@ -1720,21 +1720,15 @@ function setContentType(type) {
   document.querySelectorAll('.content-type-option').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.contentType === type);
   });
-  // Hide/show fields that don't apply to news mode
-  const newsMode = (type === 'news');
-  document.getElementById('slideCountField').style.display = newsMode ? 'none' : '';
-  document.getElementById('visualStyleField').style.display = newsMode ? 'none' : '';
-  const newsCtxField = document.getElementById('newsContextSlideField');
-  if (newsCtxField) newsCtxField.style.display = newsMode ? '' : 'none';
 
-  // Update topic placeholder hint
   applyBrandUI();
 
-  // Update generate button label
   const genBtn = document.getElementById('generateBtn');
-  genBtn.innerHTML = newsMode
-    ? '✨ Generate News Slide'
-    : '✨ Generate Copy with AI';
+  if (genBtn) {
+    genBtn.innerHTML = type === 'news'
+      ? '✨ Generate News Slide'
+      : '✨ Generate Copy with AI';
+  }
 
   const batchModal = document.getElementById('batchModal');
   if (batchModal && !batchModal.hidden) updateBatchModalSubtitle();
