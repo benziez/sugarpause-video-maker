@@ -275,6 +275,23 @@
     font-weight: 800;
     letter-spacing: 1px;
   }
+  .swatch-top5cards {
+    background: linear-gradient(180deg, #111 0%, #000 100%);
+    position: relative;
+    border: 1px solid rgba(255, 0, 127, 0.35);
+  }
+  .swatch-top5cards::after {
+    content: 'TOP 5';
+    position: absolute;
+    bottom: 8px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #FF007F;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
   /* The content-type-option reuses the .style-option styling */
   .content-type-option {
     background: var(--panel-2);
@@ -818,6 +835,11 @@
         <div class="field" id="contentTypeField">
           <label>Content type</label>
           <div class="style-toggle" id="contentTypeToggle">
+            <button type="button" class="content-type-option" data-content-type="top5cards" id="top5CardsContentOption" style="display: none;">
+              <div class="style-swatch swatch-top5cards"></div>
+              <div class="style-label">Top 5 Cards</div>
+              <div class="style-hint">Cover + 5 cards + CTA</div>
+            </button>
             <button type="button" class="content-type-option" data-content-type="toplist" id="toplistContentOption" style="display: none;">
               <div class="style-swatch swatch-toplist"></div>
               <div class="style-label">Top List</div>
@@ -1011,12 +1033,22 @@ let currentBrand = localStorage.getItem('sugarpause_brand') || 'sugarpause';
 if (currentBrand !== 'sugarpause' && currentBrand !== 'pointless' && currentBrand !== 'winrips') currentBrand = 'sugarpause';
 
 let contentType = localStorage.getItem('sugarpause_content_type') || 'carousel';
-if (currentBrand === 'winrips' && contentType === 'carousel' && !localStorage.getItem('sugarpause_winrips_migrated_toplist')) {
-  contentType = 'toplist';
-  localStorage.setItem('sugarpause_content_type', 'toplist');
-  localStorage.setItem('sugarpause_winrips_migrated_toplist', '1');
+if (currentBrand === 'winrips' && !localStorage.getItem('sugarpause_winrips_migrated_top5')) {
+  if (contentType === 'carousel' || contentType === 'toplist') {
+    contentType = 'top5cards';
+    localStorage.setItem('sugarpause_content_type', 'top5cards');
+  }
+  localStorage.setItem('sugarpause_winrips_migrated_top5', '1');
 }
-if (currentBrand !== 'winrips' && contentType === 'toplist') contentType = 'carousel';
+if (currentBrand !== 'winrips' && (contentType === 'toplist' || contentType === 'top5cards')) contentType = 'carousel';
+
+function isTop5CardsMode() {
+  return isWinRipsBrand() && contentType === 'top5cards';
+}
+
+function isTopListMode() {
+  return isWinRipsBrand() && contentType === 'toplist';
+}
 let contentTone = localStorage.getItem('sugarpause_content_tone') || 'community';
 let scrapeArticleContext = '';
 
@@ -1161,10 +1193,13 @@ function applyBrandUI() {
   if (newsCtxField) newsCtxField.style.display = newsMode ? '' : 'none';
 
   const contentTypeToggle = document.getElementById('contentTypeToggle');
+  const top5Option = document.getElementById('top5CardsContentOption');
   const toplistOption = document.getElementById('toplistContentOption');
   const carouselOption = document.querySelector('[data-content-type="carousel"]');
-  if (toplistOption) toplistOption.style.display = isWinRipsBrand() ? '' : 'none';
-  if (contentTypeToggle) contentTypeToggle.classList.toggle('three-col', isWinRipsBrand());
+  const winRipsTypes = isWinRipsBrand();
+  if (top5Option) top5Option.style.display = winRipsTypes ? '' : 'none';
+  if (toplistOption) toplistOption.style.display = winRipsTypes ? '' : 'none';
+  if (contentTypeToggle) contentTypeToggle.classList.toggle('three-col', winRipsTypes);
   if (carouselOption) {
     const label = carouselOption.querySelector('.style-label');
     const hint = carouselOption.querySelector('.style-hint');
@@ -1182,6 +1217,8 @@ function applyBrandUI() {
     const label = slideCountField.querySelector('label');
     const countInput = document.getElementById('slideCount');
     if (newsMode) {
+      slideCountField.style.display = 'none';
+    } else if (contentType === 'top5cards' && isWinRipsBrand()) {
       slideCountField.style.display = 'none';
     } else if (contentType === 'toplist' && isWinRipsBrand()) {
       slideCountField.style.display = '';
@@ -1219,7 +1256,7 @@ function setBrand(brand) {
   if (brand !== 'sugarpause' && brand !== 'pointless' && brand !== 'winrips') return;
   currentBrand = brand;
   localStorage.setItem('sugarpause_brand', brand);
-  if (brand !== 'winrips' && contentType === 'toplist') setContentType('carousel');
+  if (brand !== 'winrips' && (contentType === 'toplist' || contentType === 'top5cards')) setContentType('carousel');
   else applyBrandUI();
   if (slides.length > 0) {
     renderEditors();
@@ -1959,6 +1996,10 @@ function drawWinRipsPriceRow(ctx, y, label, labelColor, price) {
 }
 
 function drawWinRipsListCover(ctx, slide) {
+  if (slide.listStyle === 'top5' || (typeof slides !== 'undefined' && slides._format === 'winrips_top5')) {
+    drawWinRipsTop5Cover(ctx, slide);
+    return;
+  }
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, WINRIPS_LIST_PURPLE);
   bg.addColorStop(0.5, '#2d1f6e');
@@ -2003,9 +2044,46 @@ function drawWinRipsListCover(ctx, slide) {
   drawWinRipsFooter(ctx);
 }
 
+  drawWinRipsFooter(ctx);
+}
+
+function drawWinRipsTop5Cover(ctx, slide) {
+  if (slide.image) {
+    const bgImg = getCachedImage(slide.image);
+    if (bgImg && bgImg.complete && bgImg.naturalWidth) {
+      const ar = bgImg.naturalWidth / bgImg.naturalHeight;
+      const tar = W / H;
+      let dw, dh, dx, dy;
+      if (ar > tar) { dh = H; dw = H * ar; dx = -(dw - W) / 2; dy = 0; }
+      else { dw = W; dh = W / ar; dx = 0; dy = -(dh - H) / 2; }
+      ctx.drawImage(bgImg, dx, dy, dw, dh);
+    } else {
+      drawWinRipsBase(ctx, true);
+    }
+    const overlay = ctx.createLinearGradient(0, 0, 0, H);
+    overlay.addColorStop(0, 'rgba(0, 0, 0, 0.55)');
+    overlay.addColorStop(0.5, 'rgba(0, 0, 0, 0.82)');
+    overlay.addColorStop(1, 'rgba(0, 0, 0, 0.96)');
+    ctx.fillStyle = overlay;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.fillRect(0, 0, W, 5);
+  } else {
+    drawWinRipsBase(ctx, true);
+  }
+
+  const coverTitle = (slide.title || slide.seriesName || 'TOP 5').toUpperCase();
+  const highlights = slide.highlights || [];
+  drawHeadlineWithHighlights(ctx, coverTitle, highlights, 72, H * 0.72, W - 144);
+  drawWinRipsFooter(ctx);
+}
+
 function drawWinRipsListCard(ctx, slide) {
+  const isTop5 = slide.listStyle === 'top5' || (typeof slides !== 'undefined' && slides._format === 'winrips_top5');
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.fillRect(0, 0, W, 5);
 
   if (slide.rank) {
     ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
@@ -2028,26 +2106,47 @@ function drawWinRipsListCard(ctx, slide) {
     ctx.fillText('Add card image', W / 2, H * 0.4);
   }
 
-  drawWinRipsFlames(ctx);
+  if (!isTop5) drawWinRipsFlames(ctx);
 
   const cardName = slide.title || slide.cardName || '';
+  let textY = isTop5 ? H - 320 : H - 290;
   if (cardName) {
     ctx.fillStyle = '#ffffff';
-    ctx.font = '700 30px Inter, -apple-system, sans-serif';
+    ctx.font = isTop5 ? '800 34px Inter, -apple-system, sans-serif' : '700 30px Inter, -apple-system, sans-serif';
     ctx.textAlign = 'center';
     layoutLines(ctx, cardName, W - 100).slice(0, 2).forEach((line, i) => {
-      ctx.fillText(line, W / 2, H - 290 + i * 36);
+      ctx.fillText(line, W / 2, textY + i * 38);
     });
+    textY += layoutLines(ctx, cardName, W - 100).slice(0, 2).length * 38 + 12;
+  }
+
+  const cardSet = slide.set || slide.cardSet || '';
+  if (cardSet && isTop5) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.font = '500 26px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    layoutLines(ctx, cardSet, W - 100).slice(0, 1).forEach((line, i) => {
+      ctx.fillText(line, W / 2, textY + i * 32);
+    });
+    textY += 40;
+  } else if (cardName && !isTop5) {
+    // legacy top list layout handled above
   }
 
   const rawPrice = slide.rawPrice || slide.raw_price || 'N/A';
   const psaPrice = slide.psaPrice || slide.psa_price || 'N/A';
-  drawWinRipsPriceRow(ctx, H - 190, 'Raw:', WINRIPS_LIST_GREEN, rawPrice);
-  drawWinRipsPriceRow(ctx, H - 130, 'PSA 10:', WINRIPS_LIST_YELLOW, psaPrice);
+  const rawY = isTop5 ? H - 170 : H - 190;
+  const psaY = isTop5 ? H - 110 : H - 130;
+  drawWinRipsPriceRow(ctx, rawY, 'Raw:', WINRIPS_LIST_GREEN, rawPrice);
+  drawWinRipsPriceRow(ctx, psaY, 'PSA 10:', WINRIPS_LIST_YELLOW, psaPrice);
   drawWinRipsFooter(ctx);
 }
 
 function drawWinRipsListCTA(ctx, slide) {
+  if (slide.listStyle === 'top5' || (typeof slides !== 'undefined' && slides._format === 'winrips_top5')) {
+    drawWinRipsTop5CTA(ctx, slide);
+    return;
+  }
   ctx.fillStyle = '#050508';
   ctx.fillRect(0, 0, W, H);
 
@@ -2086,6 +2185,35 @@ function drawWinRipsListCTA(ctx, slide) {
   ctx.fillStyle = WINRIPS_PINK;
   ctx.font = '700 32px Inter, -apple-system, sans-serif';
   ctx.fillText('winrips.com', W / 2, H - 140);
+  drawWinRipsFooter(ctx);
+}
+
+function drawWinRipsTop5CTA(ctx, slide) {
+  drawWinRipsBase(ctx, true);
+  const cx = W / 2;
+  const promo = slide.promo || slide.body || 'Every pack you open could have one of these';
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = WINRIPS_PINK;
+  ctx.font = '800 72px Inter, -apple-system, sans-serif';
+  ctx.shadowColor = 'rgba(255, 0, 127, 0.45)';
+  ctx.shadowBlur = 36;
+  ctx.fillText('WinRips', cx, H * 0.38);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '700 38px Inter, -apple-system, sans-serif';
+  const lines = layoutLines(ctx, promo, W - 120).slice(0, 3);
+  const lh = 48;
+  const blockH = lines.length * lh;
+  let startY = Math.round((H - blockH) / 2) + 40;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, cx, startY + (i + 1) * lh);
+  });
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+  ctx.font = '500 28px Inter, -apple-system, sans-serif';
+  ctx.fillText('winrips.com', cx, H - 160);
   drawWinRipsFooter(ctx);
 }
 
@@ -2130,7 +2258,7 @@ setVisualStyle(visualStyle);
 // ============================================================
 
 function setContentType(type) {
-  if (type === 'toplist' && !isWinRipsBrand()) type = 'carousel';
+  if ((type === 'toplist' || type === 'top5cards') && !isWinRipsBrand()) type = 'carousel';
   contentType = type;
   localStorage.setItem('sugarpause_content_type', type);
   document.querySelectorAll('.content-type-option').forEach(btn => {
@@ -2142,6 +2270,7 @@ function setContentType(type) {
   const genBtn = document.getElementById('generateBtn');
   if (genBtn) {
     if (type === 'news') genBtn.innerHTML = '✨ Generate News Slide';
+    else if (type === 'top5cards') genBtn.innerHTML = '✨ Generate Top 5 Cards';
     else if (type === 'toplist') genBtn.innerHTML = '✨ Generate Top List';
     else genBtn.innerHTML = '✨ Generate Copy with AI';
   }
@@ -2444,6 +2573,55 @@ STRICT TEXT LIMITS:
 NO em dashes or en dashes anywhere.
 ` : '';
 
+  const winRipsTop5Rules = brand === 'winrips' && format === 'winrips_top5' ? `
+════════════════════════════════════════════════
+WINRIPS — TOP 5 CARDS (FIXED 7-SLIDE DECK)
+════════════════════════════════════════════════
+
+format_type MUST be "winrips_top5".
+
+Fixed structure: 1 cover + exactly 5 card slides + 1 CTA = 7 slides total. Ignore SLIDE_COUNT (always 5 cards).
+
+Slide 1 COVER:
+- cover_title: "TOP 5 [TOPIC]" in ALL CAPS. Topic comes from TOPIC variable. Example topic "rarest pokemon cards" → "TOP 5 RAREST POKEMON CARDS"
+- highlights: 1-2 substrings from cover_title to accent in pink (usually "5" and/or a key word from topic)
+- Dark, minimal. NO paragraphs.
+
+Slides 2-6 (one card each, ranks 5 down to 1):
+- name: card name only, max 6 words
+- set: Pokemon set name (e.g. Base Set, Legendary Collection, Promo)
+- raw_price: formatted like "$3,712"
+- psa_price: formatted like "$71.3k" or "$5.2M"
+- image_query: specific card product photo search
+- ONLY these fields per card. NO sentences.
+
+Slide 7 CTA:
+- cta_line: default "Every pack you open could have one of these" (rewrite slightly if topic demands, max 12 words)
+
+Return JSON:
+{
+  "format_type": "winrips_top5",
+  "cover_title": "TOP 5 [TOPIC IN ALL CAPS]",
+  "highlights": ["5", "key word from title"],
+  "cards": [
+    { "rank": 5, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 4, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 3, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 2, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 1, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." }
+  ],
+  "cta_line": "Every pack you open could have one of these",
+  "captionA": "Hype caption + exactly 5 hashtags ending with #WinRips",
+  "captionB": "Educational caption + exactly 5 hashtags ending with #WinRips",
+  "captionC": "FOMO caption + exactly 5 hashtags ending with #WinRips",
+  "tweetBody": "Standalone tweet, 2-3 sentences, max ~250 chars.",
+  "image_query": "Cover: rare pokemon cards dark background"
+}
+
+STRICT: cards array MUST have exactly 5 entries. NO paragraph text anywhere.
+NO em dashes or en dashes anywhere.
+` : '';
+
   const winRipsCarouselRules = brand === 'winrips' && format === 'carousel' ? `
 ════════════════════════════════════════════════
 WINRIPS — FIXED 6-SLIDE DECK (MANDATORY)
@@ -2537,7 +2715,7 @@ IF BRAND IS "winrips":
   Vibe: pure black (#000000), hot pink accent (#FF007F), white text, premium dark.
   Hashtags: always end captions with exactly 5 hashtags, last one #WinRips + topical (#pokemon #pokemontcg #tcg etc.)
   AVOID: corporate marketing speak, generic "check out our app", fabricated card values not implied by topic.
-${winRipsTopListRules}${winRipsCarouselRules}
+${winRipsTopListRules}${winRipsTop5Rules}${winRipsCarouselRules}
 ════════════════════════════════════════════════
 STEP 2 — PICK THE ANGLE (do this internally)
 ════════════════════════════════════════════════
@@ -2630,6 +2808,9 @@ IF FORMAT IS "single_news_slide":
   - SugarPause: THE STUDY, THE FINDING, THE CATCH, WHAT TO DO, THE LIE, THE TRUTH
   - Pointless ACT 1: THE STORY, WHAT HAPPENED, WHY IT MATTERS, WHAT'S NEXT, THE TIMELINE, THE STAKES (never THE SIGNAL, THE EDGE, WHAT MOVED IT)
   - WinRips: THE PULL, THE TEA, THE LESSON, THE ODDS, THE SLAB, THE VALUE
+
+IF FORMAT IS "winrips_top5":
+  Follow the WINRIPS TOP 5 CARDS rules above. Return ONLY that JSON shape. Ignore all other format rules below.
 
 IF FORMAT IS "winrips_toplist":
   Follow the WINRIPS TOP LIST CAROUSEL rules above. Return ONLY that JSON shape. Ignore all carousel/story/bullet rules below.
@@ -2852,7 +3033,68 @@ function buildWinRipsTopListFromParsed(parsed, topic) {
   return deck;
 }
 
+function buildWinRipsTop5FromParsed(parsed, topic) {
+  const topicLabel = String(parsed.topic_label || topic || 'CARDS').trim();
+  const coverTitle = String(parsed.cover_title || `TOP 5 ${topicLabel}`).trim().toUpperCase();
+  const highlights = Array.isArray(parsed.highlights) && parsed.highlights.length
+    ? parsed.highlights
+    : ['5'];
+
+  const deck = [];
+  deck.push({
+    type: 'winrips_list_cover',
+    listStyle: 'top5',
+    title: coverTitle,
+    seriesName: coverTitle,
+    topicLabel,
+    listCount: 5,
+    highlights,
+    image: null,
+    imageQuery: parsed.image_query || `${topic} pokemon cards rare`,
+    imageOptions: null
+  });
+
+  const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
+  for (let i = 0; i < 5; i++) {
+    const c = cards[i] || {};
+    const rank = c.rank != null ? parseInt(c.rank, 10) : (5 - i);
+    deck.push({
+      type: 'winrips_list_card',
+      listStyle: 'top5',
+      rank,
+      title: String(c.name || c.card_name || `Card #${rank}`).trim(),
+      set: String(c.set || c.card_set || '').trim(),
+      rawPrice: String(c.raw_price || c.rawPrice || 'N/A').trim(),
+      psaPrice: String(c.psa_price || c.psaPrice || 'N/A').trim(),
+      image: null,
+      imageQuery: c.image_query || `${c.name || topic} pokemon card ${c.set || ''}`.trim(),
+      imageOptions: null
+    });
+  }
+
+  deck.push({
+    type: 'winrips_list_cta',
+    listStyle: 'top5',
+    promo: String(parsed.cta_line || parsed.cta_promo || 'Every pack you open could have one of these').trim(),
+    image: null,
+    imageQuery: parsed.cta_image_query || 'PSA 10 graded pokemon card slab',
+    imageOptions: null
+  });
+
+  deck._format = 'winrips_top5';
+  deck._captions = {
+    captionA: parsed.captionA || '',
+    captionB: parsed.captionB || '',
+    captionC: parsed.captionC || ''
+  };
+  deck._tweetBody = parsed.tweetBody || '';
+  return deck;
+}
+
 function buildCarouselDeckFromParsed(parsed, topic) {
+  if (parsed.format_type === 'winrips_top5' || (isWinRipsBrand() && contentType === 'top5cards')) {
+    return buildWinRipsTop5FromParsed(parsed, topic);
+  }
   if (parsed.format_type === 'winrips_toplist' || (isWinRipsBrand() && contentType === 'toplist')) {
     return buildWinRipsTopListFromParsed(parsed, topic);
   }
@@ -3036,14 +3278,15 @@ function buildNewsSlidesFromParsed(parsed, topic, wantContextSlide) {
 }
 
 async function generateOneCarousel(topic, slideCount) {
-  const isTopList = isWinRipsBrand() && contentType === 'toplist';
+  const isTop5 = isTop5CardsMode();
+  const isTopList = isTopListMode();
   const inferred = inferTopListCountFromTopic(topic);
-  const count = isTopList
-    ? clampTopListCount(slideCount ?? inferred ?? document.getElementById('slideCount').value)
+  const count = isTop5 ? 5
+    : isTopList ? clampTopListCount(slideCount ?? inferred ?? document.getElementById('slideCount').value)
     : (isWinRipsBrand() ? 6 : clampSlideCount(slideCount ?? document.getElementById('slideCount').value));
   const brand = getActiveBrand();
   const extras = getGenerationExtras();
-  const format = isTopList ? 'winrips_toplist' : 'carousel';
+  const format = isTop5 ? 'winrips_top5' : isTopList ? 'winrips_toplist' : 'carousel';
   const prompt = buildGenerationPrompt({
     brand,
     format,
@@ -3057,7 +3300,7 @@ async function generateOneCarousel(topic, slideCount) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
-      maxTokens: isTopList ? (count >= 8 ? 3600 : 3000) : (count >= 6 ? 2800 : 2200)
+      maxTokens: isTop5 ? 3000 : isTopList ? (count >= 8 ? 3600 : 3000) : (count >= 6 ? 2800 : 2200)
     })
   });
   if (!res.ok) {
@@ -3114,7 +3357,9 @@ function updateBatchModalSubtitle() {
         ? 'Will generate two news slides per topic (headline + context).'
         : 'Will generate one news slide per topic.';
     }
-  } else if (isWinRipsBrand() && contentType === 'toplist') {
+  } else if (isTop5CardsMode()) {
+    el.textContent = 'Will generate one Top 5 Cards deck per topic (7 slides: cover + 5 cards + CTA).';
+  } else if (isTopListMode()) {
     el.textContent = 'Will generate one Top List deck per topic (cover + card slides + CTA).';
   } else if (isWinRipsBrand()) {
     el.textContent = 'Will generate one full 6-slide story deck per topic.';
@@ -3169,7 +3414,7 @@ async function batchGenerateFromTopics(topics) {
 
   const genBtn = document.getElementById('generateBtn');
   const batchBtn = document.getElementById('batchBtn');
-  const slideCount = (contentType === 'toplist' && isWinRipsBrand())
+  const slideCount = isTopListMode()
     ? clampTopListCount(document.getElementById('slideCount').value)
     : clampSlideCount(document.getElementById('slideCount').value);
   const wantContext = !!(document.getElementById('newsContextSlideToggle')?.checked);
@@ -3295,6 +3540,7 @@ async function generateContent() {
     } finally {
       btn.disabled = false;
       btn.innerHTML = contentType === 'news' ? '✨ Generate News Slide'
+        : contentType === 'top5cards' ? '✨ Generate Top 5 Cards'
         : contentType === 'toplist' ? '✨ Generate Top List'
         : '✨ Generate Copy with AI';
     }
@@ -3321,7 +3567,8 @@ async function generateContent() {
     document.getElementById('editorPanel').hidden = false;
     renderEditors();
     renderAll();
-    const formatLabel = deck._format === 'winrips_toplist' ? `🎴 Top List (${deck.length} slides — add card images)` :
+    const formatLabel = deck._format === 'winrips_top5' ? '🎴 Top 5 Cards (7 slides — add card images on slides 2-6)' :
+                        deck._format === 'winrips_toplist' ? `🎴 Top List (${deck.length} slides — add card images)` :
                         deck._format === 'winrips' ? '🎴 WinRips 6-slide story deck' :
                         deck._format === 'list' ? '📋 List/roundup' :
                         deck._format === 'narrative' ? '📖 Narrative story arc' :
@@ -3575,9 +3822,9 @@ function renderEditors() {
     div.className = 'slide-editor';
 
     const label = slide.type === 'hook' ? 'Slide 1 — Hook' :
-                  slide.type === 'winrips_list_cover' ? 'Slide 1 — Top List cover' :
+                  slide.type === 'winrips_list_cover' ? (slide.listStyle === 'top5' || slides._format === 'winrips_top5' ? 'Slide 1 — Top 5 cover' : 'Slide 1 — Top List cover') :
                   slide.type === 'winrips_list_card' ? `Slide ${i + 1} — #${slide.rank || '?'} card` :
-                  slide.type === 'winrips_list_cta' ? `Slide ${i + 1} — CTA` :
+                  slide.type === 'winrips_list_cta' ? (slide.listStyle === 'top5' || slides._format === 'winrips_top5' ? `Slide ${i + 1} — Top 5 CTA` : `Slide ${i + 1} — CTA`) :
                   slide.type === 'winrips_hook' ? 'Slide 1 — Hook' :
                   slide.type === 'winrips_story' ? `Slide ${i+1} — Story / bullets` :
                   slide.type === 'winrips_reveal' ? `Slide ${i+1} — Reveal / data` :
@@ -3600,17 +3847,25 @@ function renderEditors() {
       </p>`;
     } else if (slide.type === 'winrips_list_cover') {
       html += `<div class="field">
-        <label>Series name (top of cover)</label>
-        <input type="text" data-i="${i}" data-field="seriesName" value="${escapeHtml(slide.seriesName || slide.title || '')}" />
+        <label>Cover title</label>
+        <textarea data-i="${i}" data-field="title" rows="2">${escapeHtml(slide.title || slide.seriesName || '')}</textarea>
+        <p class="hint">Renders as bold ALL CAPS, e.g. TOP 5 RAREST POKEMON CARDS</p>
       </div>`;
-      html += `<div class="field">
-        <label>Subtitle (under the number)</label>
-        <input type="text" data-i="${i}" data-field="subtitle" value="${escapeHtml(slide.subtitle || '')}" placeholder="e.g. Highest Value Cards" />
-      </div>`;
-      html += `<div class="field">
-        <label>List count (big yellow number)</label>
-        <input type="text" data-i="${i}" data-field="listCount" value="${escapeHtml(slide.listCount != null ? slide.listCount : '')}" />
-      </div>`;
+      if (slide.listStyle !== 'top5' && slides._format !== 'winrips_top5') {
+        html += `<div class="field">
+          <label>Subtitle (under the number)</label>
+          <input type="text" data-i="${i}" data-field="subtitle" value="${escapeHtml(slide.subtitle || '')}" placeholder="e.g. Highest Value Cards" />
+        </div>`;
+        html += `<div class="field">
+          <label>List count (big yellow number)</label>
+          <input type="text" data-i="${i}" data-field="listCount" value="${escapeHtml(slide.listCount != null ? slide.listCount : '')}" />
+        </div>`;
+      } else {
+        html += `<div class="field">
+          <label>Pink-highlighted words (comma separated)</label>
+          <input type="text" data-i="${i}" data-field="highlights-csv" value="${escapeHtml((slide.highlights || []).join(', '))}" />
+        </div>`;
+      }
     } else if (slide.type === 'winrips_list_card') {
       html += `<div class="field">
         <label>Rank</label>
@@ -3620,6 +3875,12 @@ function renderEditors() {
         <label>Card name</label>
         <input type="text" data-i="${i}" data-field="title" value="${escapeHtml(slide.title || '')}" />
       </div>`;
+      if (slide.listStyle === 'top5' || slides._format === 'winrips_top5') {
+        html += `<div class="field">
+          <label>Set</label>
+          <input type="text" data-i="${i}" data-field="set" value="${escapeHtml(slide.set || '')}" placeholder="e.g. Base Set, Legendary Collection" />
+        </div>`;
+      }
       html += `<div class="field">
         <label>Raw price</label>
         <input type="text" data-i="${i}" data-field="rawPrice" value="${escapeHtml(slide.rawPrice || '')}" placeholder="e.g. $3,712" />
@@ -3629,18 +3890,25 @@ function renderEditors() {
         <input type="text" data-i="${i}" data-field="psaPrice" value="${escapeHtml(slide.psaPrice || '')}" placeholder="e.g. $71.3k" />
       </div>`;
     } else if (slide.type === 'winrips_list_cta') {
-      html += `<div class="field">
-        <label>Headline line 1</label>
-        <input type="text" data-i="${i}" data-field="headline" value="${escapeHtml(slide.headline || '')}" placeholder="START OPENING" />
-      </div>`;
-      html += `<div class="field">
-        <label>Headline accent (big pink word)</label>
-        <input type="text" data-i="${i}" data-field="headlineAccent" value="${escapeHtml(slide.headlineAccent || '')}" placeholder="TODAY" />
-      </div>`;
-      html += `<div class="field">
-        <label>Promo line</label>
-        <input type="text" data-i="${i}" data-field="promo" value="${escapeHtml(slide.promo || '')}" />
-      </div>`;
+      if (slide.listStyle === 'top5' || slides._format === 'winrips_top5') {
+        html += `<div class="field">
+          <label>CTA line</label>
+          <textarea data-i="${i}" data-field="promo" rows="2">${escapeHtml(slide.promo || '')}</textarea>
+        </div>`;
+      } else {
+        html += `<div class="field">
+          <label>Headline line 1</label>
+          <input type="text" data-i="${i}" data-field="headline" value="${escapeHtml(slide.headline || '')}" placeholder="START OPENING" />
+        </div>`;
+        html += `<div class="field">
+          <label>Headline accent (big pink word)</label>
+          <input type="text" data-i="${i}" data-field="headlineAccent" value="${escapeHtml(slide.headlineAccent || '')}" placeholder="TODAY" />
+        </div>`;
+        html += `<div class="field">
+          <label>Promo line</label>
+          <input type="text" data-i="${i}" data-field="promo" value="${escapeHtml(slide.promo || '')}" />
+        </div>`;
+      }
     } else if (slide.type === 'winrips_hook') {
       html += `<div class="field">
         <label>Headline (renders in all caps)</label>
