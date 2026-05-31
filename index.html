@@ -184,8 +184,12 @@
   .style-toggle.three-col {
     grid-template-columns: 1fr 1fr 1fr;
   }
+  .style-toggle.winrips-content-grid {
+    grid-template-columns: 1fr 1fr;
+  }
   @media (max-width: 520px) {
     .style-toggle.three-col { grid-template-columns: 1fr; }
+    .style-toggle.winrips-content-grid { grid-template-columns: 1fr; }
   }
   .style-option {
     background: var(--panel-2);
@@ -314,8 +318,13 @@
 
   .brand-toggle {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
+    position: relative;
+    z-index: 2;
+  }
+  @media (max-width: 520px) {
+    .brand-toggle { grid-template-columns: 1fr; }
   }
   .brand-pill {
     padding: 12px 14px;
@@ -329,6 +338,9 @@
     width: 100%;
     font-family: inherit;
     transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    position: relative;
+    z-index: 1;
+    pointer-events: auto;
   }
   .brand-pill:hover:not(.active) { border-color: var(--muted); }
   .brand-pill.active {
@@ -838,7 +850,7 @@
             <button type="button" class="content-type-option" data-content-type="top5cards" id="top5CardsContentOption" style="display: none;">
               <div class="style-swatch swatch-top5cards"></div>
               <div class="style-label">Top 5 Cards</div>
-              <div class="style-hint">Cover + 5 cards + CTA</div>
+              <div class="style-hint">7 slides: cover + 5 cards + CTA</div>
             </button>
             <button type="button" class="content-type-option" data-content-type="toplist" id="toplistContentOption" style="display: none;">
               <div class="style-swatch swatch-toplist"></div>
@@ -1199,7 +1211,10 @@ function applyBrandUI() {
   const winRipsTypes = isWinRipsBrand();
   if (top5Option) top5Option.style.display = winRipsTypes ? '' : 'none';
   if (toplistOption) toplistOption.style.display = winRipsTypes ? '' : 'none';
-  if (contentTypeToggle) contentTypeToggle.classList.toggle('three-col', winRipsTypes);
+  if (contentTypeToggle) {
+    contentTypeToggle.classList.toggle('three-col', false);
+    contentTypeToggle.classList.toggle('winrips-content-grid', winRipsTypes);
+  }
   if (carouselOption) {
     const label = carouselOption.querySelector('.style-label');
     const hint = carouselOption.querySelector('.style-hint');
@@ -1256,17 +1271,37 @@ function setBrand(brand) {
   if (brand !== 'sugarpause' && brand !== 'pointless' && brand !== 'winrips') return;
   currentBrand = brand;
   localStorage.setItem('sugarpause_brand', brand);
-  if (brand !== 'winrips' && (contentType === 'toplist' || contentType === 'top5cards')) setContentType('carousel');
-  else applyBrandUI();
+
+  if (brand === 'winrips') {
+    if (contentType !== 'news') setContentType('top5cards');
+    else applyBrandUI();
+  } else if (contentType === 'toplist' || contentType === 'top5cards') {
+    setContentType('carousel');
+  } else {
+    applyBrandUI();
+  }
+
   if (slides.length > 0) {
-    renderEditors();
-    renderAll();
+    try {
+      renderEditors();
+      renderAll();
+    } catch (err) {
+      console.error('[setBrand]', err);
+    }
   }
 }
 
+const brandToggleEl = document.querySelector('.brand-toggle');
+if (brandToggleEl) {
+  brandToggleEl.addEventListener('click', e => {
+    const btn = e.target.closest('.brand-pill');
+    if (btn?.dataset.brand) setBrand(btn.dataset.brand);
+  });
+}
 document.querySelectorAll('.brand-pill').forEach(btn => {
   btn.addEventListener('click', () => setBrand(btn.dataset.brand));
 });
+applyBrandUI();
 
 function drawBrandFooterLine(ctx, brandY) {
   const logoImg = (!isPointlessBrand() && !isWinRipsBrand() && typeof LOGO_DATA_URL !== 'undefined') ? getCachedImage(LOGO_DATA_URL) : null;
@@ -2129,14 +2164,25 @@ function drawWinRipsListCard(ctx, slide) {
       ctx.fillText(line, W / 2, textY + i * 32);
     });
     textY += 40;
+  }
+
+  const tagline = slide.tagline || slide.description || '';
+  if (tagline && isTop5) {
+    ctx.fillStyle = WINRIPS_PINK;
+    ctx.font = '600 24px Inter, -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    layoutLines(ctx, tagline, W - 100).slice(0, 2).forEach((line, i) => {
+      ctx.fillText(line, W / 2, textY + i * 30);
+    });
+    textY += layoutLines(ctx, tagline, W - 100).slice(0, 2).length * 30 + 8;
   } else if (cardName && !isTop5) {
     // legacy top list layout handled above
   }
 
   const rawPrice = slide.rawPrice || slide.raw_price || 'N/A';
   const psaPrice = slide.psaPrice || slide.psa_price || 'N/A';
-  const rawY = isTop5 ? H - 170 : H - 190;
-  const psaY = isTop5 ? H - 110 : H - 130;
+  const rawY = isTop5 ? (tagline ? H - 155 : H - 170) : H - 190;
+  const psaY = isTop5 ? (tagline ? H - 95 : H - 110) : H - 130;
   drawWinRipsPriceRow(ctx, rawY, 'Raw:', WINRIPS_LIST_GREEN, rawPrice);
   drawWinRipsPriceRow(ctx, psaY, 'PSA 10:', WINRIPS_LIST_YELLOW, psaPrice);
   drawWinRipsFooter(ctx);
@@ -2258,6 +2304,8 @@ setVisualStyle(visualStyle);
 // ============================================================
 
 function setContentType(type) {
+  const valid = ['carousel', 'news', 'toplist', 'top5cards'];
+  if (!valid.includes(type)) type = 'carousel';
   if ((type === 'toplist' || type === 'top5cards') && !isWinRipsBrand()) type = 'carousel';
   contentType = type;
   localStorage.setItem('sugarpause_content_type', type);
@@ -2418,6 +2466,7 @@ function initTopicQueue() {
 
 function showStatus(msg, type) {
   const el = document.getElementById('status');
+  if (!el) { console.log('[status]', type, msg); return; }
   el.className = 'status ' + type;
   el.textContent = msg;
   console.log('[status]', type, msg);
@@ -2581,22 +2630,31 @@ WINRIPS — TOP 5 CARDS (FIXED 7-SLIDE DECK)
 format_type MUST be "winrips_top5".
 
 Fixed structure: 1 cover + exactly 5 card slides + 1 CTA = 7 slides total. Ignore SLIDE_COUNT (always 5 cards).
+Uses the same TOPIC input as carousel. Pick 5 real cards that fit the topic.
 
 Slide 1 COVER:
-- cover_title: "TOP 5 [TOPIC]" in ALL CAPS. Topic comes from TOPIC variable. Example topic "rarest pokemon cards" → "TOP 5 RAREST POKEMON CARDS"
-- highlights: 1-2 substrings from cover_title to accent in pink (usually "5" and/or a key word from topic)
+- cover_title: "TOP 5 [TOPIC]" in ALL CAPS. Example topic "rarest pokemon cards" → "TOP 5 RAREST POKEMON CARDS"
+- highlights: 1-2 substrings from cover_title to accent in pink (usually "5" and/or a key word)
 - Dark, minimal. NO paragraphs.
 
-Slides 2-6 (one card each, ranks 5 down to 1):
+Slides 2-6 (SUSPENSE ORDER: rank 5 first, rank 1 last):
+- Order cards array rank 5 → 4 → 3 → 2 → 1. Slide 2 = #5 (lowest of the five), slide 6 = #1 grail. Build suspense toward the biggest card.
 - name: card name only, max 6 words
 - set: Pokemon set name (e.g. Base Set, Legendary Collection, Promo)
-- raw_price: formatted like "$3,712"
-- psa_price: formatted like "$71.3k" or "$5.2M"
+- tagline: ONE punchy collector line, max 8 words. Hype, not a sentence. Examples: "Only 39 copies exist worldwide", "The holy grail of Japanese promos", "Retail pulls this maybe once a year"
+- raw_price: REALISTIC current raw/NM market price (TCGPlayer, eBay sold, PriceCharting tier). Format like "$3,712" or "$450"
+- psa_price: REALISTIC current PSA 10 market price for that card. Format like "$71.3k", "$5.2M", "$12,000"
 - image_query: specific card product photo search
-- ONLY these fields per card. NO sentences.
+- NO other text per card. NO paragraphs.
+
+PRICING RULES (winrips_top5 ONLY, overrides generic no-fabrication rule):
+- Use your best knowledge of real current market values for each specific card.
+- Prices must be plausible for that card's tier (don't put $500 on Pikachu Illustrator).
+- If uncertain, use well-known approximate ranges for that card (e.g. "$400k+" for a trophy card), never random numbers.
+- raw_price always lower than psa_price for the same card.
 
 Slide 7 CTA:
-- cta_line: default "Every pack you open could have one of these" (rewrite slightly if topic demands, max 12 words)
+- cta_line: "Every pack you open could have one of these" (keep this exact line unless topic strongly demands a tiny tweak, max 12 words)
 
 Return JSON:
 {
@@ -2604,11 +2662,11 @@ Return JSON:
   "cover_title": "TOP 5 [TOPIC IN ALL CAPS]",
   "highlights": ["5", "key word from title"],
   "cards": [
-    { "rank": 5, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
-    { "rank": 4, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
-    { "rank": 3, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
-    { "rank": 2, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
-    { "rank": 1, "name": "...", "set": "...", "raw_price": "$...", "psa_price": "$...", "image_query": "..." }
+    { "rank": 5, "name": "...", "set": "...", "tagline": "max 8 words", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 4, "name": "...", "set": "...", "tagline": "max 8 words", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 3, "name": "...", "set": "...", "tagline": "max 8 words", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 2, "name": "...", "set": "...", "tagline": "max 8 words", "raw_price": "$...", "psa_price": "$...", "image_query": "..." },
+    { "rank": 1, "name": "...", "set": "...", "tagline": "max 8 words", "raw_price": "$...", "psa_price": "$...", "image_query": "..." }
   ],
   "cta_line": "Every pack you open could have one of these",
   "captionA": "Hype caption + exactly 5 hashtags ending with #WinRips",
@@ -2618,7 +2676,7 @@ Return JSON:
   "image_query": "Cover: rare pokemon cards dark background"
 }
 
-STRICT: cards array MUST have exactly 5 entries. NO paragraph text anywhere.
+STRICT: cards array MUST have exactly 5 entries, ranks 5 down to 1. tagline max 8 words each.
 NO em dashes or en dashes anywhere.
 ` : '';
 
@@ -2737,6 +2795,7 @@ STEP 3 — FACTUAL GUARDRAILS (apply to both brands)
 ════════════════════════════════════════════════
 
 NEVER FABRICATE specific numbers (percentages, study sample sizes, market prices, dollar amounts) unless they appeared in the input. Use directional language instead: "studies suggest", "research shows", "the market is pricing higher", "traders are favoring".
+EXCEPTION: winrips_top5 format MUST include realistic current raw and PSA 10 market prices for each named card (see TOP 5 CARDS rules above).
 
 NEVER attribute claims to specific named sources you can't verify. No "According to Bloomberg / Harvard / NIH / ESPN…". Use generic framings: "research shows", "experts have found", "the market is signaling".
 
@@ -3064,6 +3123,7 @@ function buildWinRipsTop5FromParsed(parsed, topic) {
       rank,
       title: String(c.name || c.card_name || `Card #${rank}`).trim(),
       set: String(c.set || c.card_set || '').trim(),
+      tagline: String(c.tagline || c.description || '').trim(),
       rawPrice: String(c.raw_price || c.rawPrice || 'N/A').trim(),
       psaPrice: String(c.psa_price || c.psaPrice || 'N/A').trim(),
       image: null,
@@ -3879,6 +3939,10 @@ function renderEditors() {
         html += `<div class="field">
           <label>Set</label>
           <input type="text" data-i="${i}" data-field="set" value="${escapeHtml(slide.set || '')}" placeholder="e.g. Base Set, Legendary Collection" />
+        </div>`;
+        html += `<div class="field">
+          <label>Tagline (max 8 words)</label>
+          <input type="text" data-i="${i}" data-field="tagline" value="${escapeHtml(slide.tagline || '')}" placeholder="e.g. Only 39 copies exist worldwide" />
         </div>`;
       }
       html += `<div class="field">
